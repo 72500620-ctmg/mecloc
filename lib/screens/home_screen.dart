@@ -193,9 +193,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.errorMessage != null) {
+      final isLocationError = provider.errorMessage!.toLowerCase().contains('localização') ||
+          provider.errorMessage!.toLowerCase().contains('permiss');
       return _MessageState(
-        icon: Icons.wifi_off_outlined,
-        title: 'Não foi possível carregar as oficinas',
+        icon: isLocationError ? Icons.location_off_outlined : Icons.cloud_off_outlined,
+        title: isLocationError ? 'Localização indisponível' : 'Erro ao buscar oficinas',
         message: provider.errorMessage!,
         actionLabel: 'Tentar novamente',
         onAction: () => provider.searchWorkshops(
