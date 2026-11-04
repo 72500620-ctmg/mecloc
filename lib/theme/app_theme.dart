@@ -1,12 +1,32 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const forest = Color(0xFF174D43);
-  static const leaf = Color(0xFFB5D93B);
-  static const ink = Color(0xFF17211F);
-  static const paper = Color(0xFFF5F7F2);
-  static const muted = Color(0xFF66736F);
-  static const line = Color(0xFFDCE4DC);
+  // Cores de identidade da marca Mecloc
+  static const forest = Color(0xFF13453C);
+  static const forestDark = Color(0xFF0C2E28);
+  static const leaf = Color(0xFFA5D625);
+  static const leafGlow = Color(0xFFBCE83A);
+  static const ink = Color(0xFF141E1C);
+  static const paper = Color(0xFFF6F8F5);
+  static const muted = Color(0xFF6B7874);
+  static const line = Color(0xFFE2E8E2);
+
+  // Acentos de interface
+  static const electricBlue = Color(0xFF007AFF);
+  static const amberGold = Color(0xFFFFB300);
+  static const coralRed = Color(0xFFFF3B30);
+
+  // Cores de superfícies escuras
+  static const darkBackground = Color(0xFF101715);
+  static const darkSurface = Color(0xFF1A2421);
+  static const darkLine = Color(0xFF293633);
+
+  // Cores Liquid Glass
+  static Color glassBackgroundLight = Colors.white.withValues(alpha: 0.82);
+  static Color glassBackgroundDark = const Color(0xFF1A2421).withValues(alpha: 0.82);
+
+  static Color glassBorderLight = Colors.white.withValues(alpha: 0.65);
+  static Color glassBorderDark = Colors.white.withValues(alpha: 0.12);
 }
 
 class AppTheme {
@@ -17,15 +37,16 @@ class AppTheme {
       primary: AppColors.forest,
       secondary: AppColors.leaf,
       surface: Colors.white,
-      error: const Color(0xFFB33D36),
+      error: AppColors.coralRed,
     );
 
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.paper,
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.paper,
+        backgroundColor: Colors.transparent,
         foregroundColor: AppColors.ink,
         elevation: 0,
         centerTitle: false,
@@ -33,17 +54,18 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.line),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.line),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.forest, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.forest, width: 1.8),
         ),
       ),
       cardTheme: CardThemeData(
@@ -51,15 +73,76 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           side: const BorderSide(color: AppColors.line),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 48),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: AppColors.forest,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get dark {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: AppColors.leaf,
+      brightness: Brightness.dark,
+      primary: AppColors.leaf,
+      secondary: AppColors.leafGlow,
+      surface: AppColors.darkSurface,
+      error: AppColors.coralRed,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: AppColors.darkBackground,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.darkSurface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.darkLine),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.darkLine),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.leaf, width: 1.8),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.darkSurface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AppColors.darkLine),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.leaf,
+          foregroundColor: AppColors.ink,
+          minimumSize: const Size(0, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ),
     );
