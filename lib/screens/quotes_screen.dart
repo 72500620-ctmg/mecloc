@@ -1,123 +1,87 @@
 import 'package:flutter/material.dart';
-
-import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../providers/quotes_provider.dart';
+import '../providers/vehicle_provider.dart';
 
 class QuotesScreen extends StatefulWidget {
   const QuotesScreen({super.key});
-
   @override
   State<QuotesScreen> createState() => _QuotesScreenState();
 }
 
 class _QuotesScreenState extends State<QuotesScreen> {
-  final _proposals = <_Proposal>[
-    _Proposal(
-      workshop: 'Auto Center Exemplo',
-      service: 'Revisão preventiva',
-      price: 'A partir de R\$ 280',
-      deadline: '1 dia útil',
-      rating: '4,7',
-    ),
-    _Proposal(
-      workshop: 'Mecânica do Bairro',
-      service: 'Revisão preventiva',
-      price: 'A partir de R\$ 320',
-      deadline: '2 dias úteis',
-      rating: '4,5',
-    ),
-  ];
+  final service = TextEditingController();
+  @override
+  void dispose() {
+    service.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final quotes = context.watch<QuotesProvider>();
+    final vehicle = context.watch<VehicleProvider>().activeVehicle;
     return Scaffold(
-      appBar: AppBar(title: const Text('Orçamentos')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text(
-            'Suas solicitações',
-            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Propostas demonstrativas para comparação.',
-            style: TextStyle(color: AppColors.muted),
-          ),
-          const SizedBox(height: 18),
-          for (final proposal in _proposals) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            proposal.workshop,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        const Icon(Icons.star, size: 17, color: Colors.amber),
-                        Text(' ${proposal.rating}'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(proposal.service),
-                    const SizedBox(height: 12),
-                    Text(
-                      proposal.price,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.forest,
-                      ),
-                    ),
-                    Text(
-                      'Prazo estimado: ${proposal.deadline}',
-                      style: const TextStyle(color: AppColors.muted),
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.tonal(
-                        onPressed: proposal.confirmed
-                            ? null
-                            : () => setState(() => proposal.confirmed = true),
-                        child: Text(
-                          proposal.confirmed
-                              ? 'Agendamento confirmado'
-                              : 'Escolher proposta',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-        ],
-      ),
+      appBar: AppBar(title: const Text('Orçamentos demonstrativos')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('Simulação local',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const SizedBox(height: 8),
+        const Text(
+            'Experimente registrar um serviço. Nenhum pedido é enviado a oficinas e não há preços ou respostas reais.'),
+        const SizedBox(height: 16),
+        TextField(
+            controller: service,
+            decoration: const InputDecoration(
+                labelText: 'Serviço que deseja simular',
+                hintText: 'Ex.: revisão'),
+            textInputAction: TextInputAction.done),
+        const SizedBox(height: 12),
+        Text(vehicle == null
+            ? 'Nenhum veículo selecionado'
+            : 'Veículo: ${vehicle.shortName}'),
+        const SizedBox(height: 12),
+        FilledButton(
+            onPressed: () async {
+              final value = service.text.trim();
+              if (value.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content:
+                        Text('Informe o serviço para criar uma simulação.')));
+                return;
+              }
+              await quotes.addQuoteRequest(
+                  workshopId: 'demo',
+                  workshopName: 'Simulação local',
+                  serviceName: value,
+                  estimatedPrice: 'Sem preço real',
+                  vehicleName: vehicle?.shortName ?? 'Não selecionado');
+              service.clear();
+              if (context.mounted) {
+                FocusScope.of(context).unfocus();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text(
+                        'Simulação salva neste dispositivo. Nenhum pedido foi enviado.')));
+              }
+            },
+            child: const Text('Criar simulação')),
+        const SizedBox(height: 24),
+        Text('Simulações salvas',
+            style: Theme.of(context).textTheme.titleMedium),
+        if (quotes.quotes.isEmpty)
+          const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text('Nenhuma simulação salva.')),
+        for (final quote in quotes.quotes)
+          ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(quote.serviceName),
+              subtitle: Text('Demonstração local · ${quote.vehicleName}'),
+              trailing: IconButton(
+                  tooltip: 'Excluir simulação',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => quotes.removeQuote(quote.id))),
+      ]),
     );
   }
-}
-
-class _Proposal {
-  _Proposal({
-    required this.workshop,
-    required this.service,
-    required this.price,
-    required this.deadline,
-    required this.rating,
-  });
-
-  final String workshop;
-  final String service;
-  final String price;
-  final String deadline;
-  final String rating;
-  bool confirmed = false;
 }

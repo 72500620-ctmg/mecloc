@@ -1,76 +1,44 @@
 # MecLoc
 
-Aplicativo Flutter para localizar oficinas cadastradas no OpenStreetMap, exibi-las em um mapa, salvar favoritas e organizar veículos. As telas de orçamento usam propostas demonstrativas locais; elas não enviam pedidos reais às oficinas.
+Aplicativo Flutter para localizar estabelecimentos de serviços automotivos no OpenStreetMap, consultar informações disponíveis, salvar favoritos e organizar veículos. Orçamentos são simulações locais: nenhuma solicitação é enviada a oficinas.
 
-## Requisitos
+## Tela inicial e busca
 
-- Flutter com Dart 3.6 ou superior.
-- Flutter com suporte às plataformas desejadas (Android, iOS ou Web).
-- Conexão com a internet para consultar o OpenStreetMap.
+A tela inicial abre o mapa e solicita a localização do dispositivo. O campo flutuante pesquisa uma cidade ao tocar na lupa ou pressionar Enter; a busca funciona mesmo enquanto uma tentativa de GPS está pendente. Nominatim é o geocodificador principal, com Photon como contingência. “Minha localização” fica no painel inferior. Resultados e atalhos por tipo aparecem em um painel arrastável, com rolagem ao expandir. A barra inferior flutua sobre o painel e se oculta enquanto o teclado está aberto. Configurações (Automático, Claro e Escuro) fica na barra inferior; Orçamentos demonstrativos está disponível no painel da tela inicial.
 
-## Preparar e executar
+## Navegação
 
-Na raiz do projeto, baixe as dependências:
+- **Explorar:** buscar por cidade ou localização, filtrar os resultados e alternar entre lista e mapa. Selecione um resultado para ver endereço, telefone, horário informado e contato disponível.
+- **Favoritos:** recupera dados básicos salvos no dispositivo, mesmo depois de outra busca. Dados antigos que continham apenas IDs não incluem informações suficientes para serem exibidos fora da busca original.
+- **Veículos:** cadastro e seleção locais.
+- **Orçamentos demonstrativos:** acessados pelo painel da tela inicial; criam e removem simulações locais sem enviar pedidos ou oferecer preços reais.
+
+A busca usa Nominatim e Overpass, num raio de 8 km. Resposta vazia e falha são distintas. Os dados são colaborativos, podem estar incompletos ou desatualizados e devem ser confirmados com o estabelecimento. A atribuição do OpenStreetMap aparece no mapa.
+
+## Executar e verificar
+
+Requer Flutter com Dart 3.6 ou superior, dependências obtidas com `flutter pub get` e conexão com a internet para busca e mapa. Plataformas presentes no repositório: Android, iOS e Web.
 
 ```powershell
 flutter pub get
-```
-
-Este workspace contém o código Dart e a configuração de pacotes. Se o projeto ainda não tiver as pastas de plataforma do Flutter, gere-as uma vez:
-
-```powershell
-flutter create --platforms=android,ios,web .
-```
-
-Execute o aplicativo sem chave de API:
-
-```powershell
-flutter run
-```
-
-Para testar no Chrome:
-
-```powershell
+flutter analyze
+flutter test
 flutter run -d chrome
 ```
 
-Para conferir o código e executar os testes:
+Na revisão de 06/11/2026, `flutter analyze` passou e `flutter test --no-pub` passou com 18 testes, incluindo busca via lupa/teclado enquanto o GPS está pendente, fallback Overpass, notificações e troca de tema. Os widgets principais também foram verificados em viewports de 360×640 e 320×568. `flutter build web --release --no-pub` compilou. O teste Flutter no Chrome ficou sem saída e foi interrompido; a inspeção visual do navegador não foi concluída.
 
-```powershell
-flutter analyze
-flutter test
-```
+Teste de disponibilidade externa no mesmo dia: Nominatim encontrou Campinas e retornou coordenadas. A consulta de oficinas recebeu HTTP 502 do endpoint principal por capacidade; os outros endpoints públicos tentados expiraram sem resposta. A busca mantém o mapa na cidade e apresenta notificação de falha com opção de tentar novamente, mas resultados ao vivo dependem da disponibilidade desses serviços.
 
-## OpenStreetMap
+## Organização atual e próximos passos
 
-O app usa a localização do dispositivo (com permissão) ou geocodifica uma cidade informada pelo usuário com o Nominatim. Em seguida, consulta oficinas marcadas como `shop=car_repair` ou `craft=car_repair` no Overpass API e mostra os pontos sobre tiles do OpenStreetMap. Não é necessária chave do Google nem configuração de faturamento.
+`providers/` contém estado compartilhado e persistência local via SharedPreferences; `services/` reúne localização e acesso a fontes externas; `models/` descreve os dados; `screens/`, `widgets/` e `theme/` compõem a apresentação. Provider foi mantido. A separação em módulos por funcionalidade e repositórios explícitos ainda não foi concluída. Revisar também o fluxo de veículos, tratamento de erros de persistência, migração dos favoritos antigos e testes em telas pequenas, texto ampliado e plataformas reais.
 
-Os dados do OpenStreetMap são colaborativos e podem estar incompletos: oficinas sem as etiquetas esperadas não aparecerão, e avaliações, especialidades, preços e horários não são fornecidos. A busca cobre um raio limitado ao redor do ponto selecionado.
+As APIs públicas têm limites e políticas de uso. Antes de uma publicação, configure identificação e serviços adequados à escala e consulte as políticas do [Nominatim](https://operations.osmfoundation.org/policies/nominatim/) e dos [tiles do OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/).
 
-O uso dos serviços públicos está sujeito às políticas e limites de cada serviço. O Nominatim público deve ser usado com baixa frequência, identificação do aplicativo e respeito ao limite de solicitações; o app consulta apenas após ação explícita do usuário e mantém em memória as cidades já geocodificadas. Os servidores públicos do Overpass e de tiles não oferecem garantia de disponibilidade ou capacidade para uso comercial intenso. Para uma publicação com tráfego significativo, contrate ou hospede serviços próprios.
+## Referências de design
 
-Mantenha a atribuição visível no mapa. Consulte as [políticas do Nominatim](https://operations.osmfoundation.org/policies/nominatim/), do [servidor de tiles do OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/) e os [termos do Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances).
-
-## Estrutura
-
-```text
-lib/
-  main.dart
-  models/       # Modelo Workshop e leitura do JSON
-  providers/    # Estado de busca e favoritos
-  screens/      # Início, Oficina, Orçamentos e Meu veículo
-  services/     # Localização, geocodificação e consulta ao Overpass
-  theme/        # Identidade visual e tema
-assets/
-  branding/     # Marca e identidade visual
-  icons/        # Ícones fornecidos pelo projeto
-  images/       # Imagens do app
-```
-
-As cores principais ficam em `lib/theme/app_theme.dart`. Adicione imagens, ícones e materiais de marca nas pastas correspondentes de `assets/`; elas já estão declaradas no `pubspec.yaml`.
-
-## O que é local/demonstrativo
-
-- Favoritos de oficinas e veículos ficam no `SharedPreferences` do dispositivo.
-- Orçamentos e confirmação de proposta são mockados em memória e reiniciam ao fechar a tela.
-- Horários, preços e especialidades não são inventados: a tela de detalhe informa que devem ser confirmados diretamente com a oficina.
+- [Arquitetura Flutter](https://docs.flutter.dev/app-architecture/guide): separar apresentação, estado e fontes de dados; usar camadas adicionais quando houver responsabilidade concreta.
+- [Acessibilidade Flutter](https://docs.flutter.dev/ui/accessibility): áreas de toque, contraste, rótulos e teste com ampliação de texto.
+- [Layouts adaptáveis Flutter](https://docs.flutter.dev/ui/adaptive-responsive/best-practices): adaptar o espaço disponível e verificar a interface em diferentes tamanhos.
+- [ThemeMode](https://api.flutter.dev/flutter/material/ThemeMode.html): `ThemeMode.system` acompanha a configuração de aparência do dispositivo.
