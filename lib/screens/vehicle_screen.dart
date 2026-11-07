@@ -37,7 +37,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
         actions: [
           IconButton(
             tooltip: 'Adicionar veículo',
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.forest, size: 26),
+            icon: const Icon(Icons.add_circle_outline_rounded,
+                color: AppColors.forest, size: 26),
             onPressed: _openAddVehicleSheet,
           ),
           const SizedBox(width: 8),
@@ -65,7 +66,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(Icons.directions_car_rounded, color: Colors.white, size: 30),
+                  child: const Icon(Icons.directions_car_rounded,
+                      color: Colors.white, size: 30),
                 ),
                 const SizedBox(width: 14),
                 const Expanded(
@@ -93,8 +95,10 @@ class _VehicleScreenState extends State<VehicleScreen> {
           ),
           const SizedBox(height: 20),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 4,
             children: [
               const Text(
                 'Veículos cadastrados',
@@ -122,7 +126,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
                     const SizedBox(height: 12),
                     const Text(
                       'Nenhum veículo cadastrado',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     const Text(
@@ -149,7 +154,9 @@ class _VehicleScreenState extends State<VehicleScreen> {
                   color: isDark ? AppColors.darkSurface : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? AppColors.forest : (isDark ? AppColors.darkLine : AppColors.line),
+                    color: isSelected
+                        ? AppColors.forest
+                        : (isDark ? AppColors.darkLine : AppColors.line),
                     width: isSelected ? 2.0 : 1.0,
                   ),
                   boxShadow: isSelected
@@ -174,12 +181,16 @@ class _VehicleScreenState extends State<VehicleScreen> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? AppColors.forest
-                                  : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                                  : (isDark
+                                      ? Colors.white10
+                                      : Colors.black.withValues(alpha: 0.05)),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Icon(
                               Icons.directions_car_rounded,
-                              color: isSelected ? Colors.white : (isDark ? Colors.white70 : AppColors.ink),
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? Colors.white70 : AppColors.ink),
                               size: 24,
                             ),
                           ),
@@ -193,16 +204,21 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                     Flexible(
                                       child: Text(
                                         v.displayName,
-                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15.5),
                                       ),
                                     ),
                                     if (isSelected) ...[
                                       const SizedBox(width: 6),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2.5),
                                         decoration: BoxDecoration(
-                                          color: AppColors.forest.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: AppColors.forest
+                                              .withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                         ),
                                         child: const Text(
                                           'ATIVO',
@@ -218,16 +234,21 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  v.plate.isNotEmpty ? 'Placa: ${v.plate}' : 'Placa não cadastrada',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                                  v.plate.isNotEmpty
+                                      ? 'Placa: ${v.plate}'
+                                      : 'Placa não cadastrada',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: AppColors.muted),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
                             tooltip: 'Excluir veículo',
-                            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.muted, size: 20),
-                            onPressed: () => vehicleProvider.removeVehicle(v.id),
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: AppColors.muted, size: 20),
+                            onPressed: () =>
+                                vehicleProvider.removeVehicle(v.id),
                           ),
                         ],
                       ),
@@ -241,9 +262,15 @@ class _VehicleScreenState extends State<VehicleScreen> {
                         runSpacing: 6,
                         children: [
                           _SpecBadge(icon: Icons.speed_rounded, text: v.engine),
-                          _SpecBadge(icon: Icons.local_gas_station_rounded, text: v.fuel),
-                          _SpecBadge(icon: Icons.settings_rounded, text: v.transmission),
-                          _SpecBadge(icon: Icons.calendar_today_rounded, text: v.year.toString()),
+                          _SpecBadge(
+                              icon: Icons.local_gas_station_rounded,
+                              text: v.fuel),
+                          _SpecBadge(
+                              icon: Icons.settings_rounded,
+                              text: v.transmission),
+                          _SpecBadge(
+                              icon: Icons.calendar_today_rounded,
+                              text: v.year.toString()),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -254,10 +281,13 @@ class _VehicleScreenState extends State<VehicleScreen> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size(0, 40),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
-                            onPressed: () => vehicleProvider.selectVehicle(v.id),
-                            icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                            onPressed: () =>
+                                vehicleProvider.selectVehicle(v.id),
+                            icon: const Icon(Icons.check_circle_outline_rounded,
+                                size: 16),
                             label: const Text('Selecionar como veículo ativo'),
                           ),
                         ),
@@ -271,7 +301,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
           FilledButton.icon(
             style: FilledButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
             ),
             onPressed: _openAddVehicleSheet,
             icon: const Icon(Icons.add_rounded),
@@ -295,7 +326,9 @@ class _SpecBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -303,7 +336,9 @@ class _SpecBadge extends StatelessWidget {
         children: [
           Icon(icon, size: 13, color: AppColors.muted),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+          Text(text,
+              style:
+                  const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -346,8 +381,20 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
     'Outra',
   ];
 
-  final List<String> _fuels = const ['Flex', 'Gasolina', 'Etanol', 'Diesel', 'Híbrido', 'Elétrico'];
-  final List<String> _transmissions = const ['Manual', 'Automático', 'CVT', 'Dupla Embreagem'];
+  final List<String> _fuels = const [
+    'Flex',
+    'Gasolina',
+    'Etanol',
+    'Diesel',
+    'Híbrido',
+    'Elétrico'
+  ];
+  final List<String> _transmissions = const [
+    'Manual',
+    'Automático',
+    'CVT',
+    'Dupla Embreagem'
+  ];
 
   @override
   void dispose() {
@@ -379,7 +426,8 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.forest,
-        content: Text('Veículo ${vehicle.displayName} cadastrado e definido como ativo!'),
+        content: Text(
+            'Veículo ${vehicle.displayName} cadastrado e definido como ativo!'),
       ),
     );
   }
@@ -389,7 +437,8 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurface : Colors.white,
@@ -427,9 +476,12 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
 
                 // Marca
                 DropdownButtonFormField<String>(
-                  value: _brand,
-                  decoration: const InputDecoration(labelText: 'Marca / Montadora'),
-                  items: _popularBrands.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+                  initialValue: _brand,
+                  decoration:
+                      const InputDecoration(labelText: 'Marca / Montadora'),
+                  items: _popularBrands
+                      .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                      .toList(),
                   onChanged: (val) => setState(() => _brand = val ?? _brand),
                 ),
                 const SizedBox(height: 12),
@@ -440,15 +492,21 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
                     Expanded(
                       child: TextFormField(
                         controller: _modelController,
-                        decoration: const InputDecoration(labelText: 'Modelo', hintText: 'Ex.: Civic, Onix, Golf'),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Informe o modelo' : null,
+                        decoration: const InputDecoration(
+                            labelText: 'Modelo',
+                            hintText: 'Ex.: Civic, Onix, Golf'),
+                        validator: (val) => val == null || val.trim().isEmpty
+                            ? 'Informe o modelo'
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextFormField(
                         controller: _versionController,
-                        decoration: const InputDecoration(labelText: 'Versão', hintText: 'Ex.: Highline, LTZ'),
+                        decoration: const InputDecoration(
+                            labelText: 'Versão',
+                            hintText: 'Ex.: Highline, LTZ'),
                       ),
                     ),
                   ],
@@ -461,19 +519,24 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
                     SizedBox(
                       width: 110,
                       child: DropdownButtonFormField<int>(
-                        value: _year,
+                        initialValue: _year,
                         decoration: const InputDecoration(labelText: 'Ano'),
-                        items: List.generate(25, (index) => DateTime.now().year - index + 1)
-                            .map((y) => DropdownMenuItem(value: y, child: Text(y.toString())))
+                        items: List.generate(
+                                25, (index) => DateTime.now().year - index + 1)
+                            .map((y) => DropdownMenuItem(
+                                value: y, child: Text(y.toString())))
                             .toList(),
-                        onChanged: (val) => setState(() => _year = val ?? _year),
+                        onChanged: (val) =>
+                            setState(() => _year = val ?? _year),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextFormField(
                         initialValue: _engine,
-                        decoration: const InputDecoration(labelText: 'Motorização', hintText: 'Ex.: 1.0 Flex, 1.4 TSI'),
+                        decoration: const InputDecoration(
+                            labelText: 'Motorização',
+                            hintText: 'Ex.: 1.0 Flex, 1.4 TSI'),
                         onChanged: (val) => _engine = val,
                       ),
                     ),
@@ -486,19 +549,28 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _transmission,
+                        initialValue: _transmission,
                         decoration: const InputDecoration(labelText: 'Câmbio'),
-                        items: _transmissions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                        onChanged: (val) => setState(() => _transmission = val ?? _transmission),
+                        items: _transmissions
+                            .map((t) =>
+                                DropdownMenuItem(value: t, child: Text(t)))
+                            .toList(),
+                        onChanged: (val) => setState(
+                            () => _transmission = val ?? _transmission),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _fuel,
-                        decoration: const InputDecoration(labelText: 'Combustível'),
-                        items: _fuels.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-                        onChanged: (val) => setState(() => _fuel = val ?? _fuel),
+                        initialValue: _fuel,
+                        decoration:
+                            const InputDecoration(labelText: 'Combustível'),
+                        items: _fuels
+                            .map((f) =>
+                                DropdownMenuItem(value: f, child: Text(f)))
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => _fuel = val ?? _fuel),
                       ),
                     ),
                   ],

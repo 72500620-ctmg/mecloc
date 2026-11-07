@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+class AppRadii {
+  static const card = 18.0;
+  static const floating = 30.0;
+  static const sheet = 28.0;
+}
+
 class AppColors {
   // Cores de identidade da marca Mecloc
   static const forest = Color(0xFF13453C);
@@ -23,7 +29,8 @@ class AppColors {
 
   // Cores Liquid Glass
   static Color glassBackgroundLight = Colors.white.withValues(alpha: 0.82);
-  static Color glassBackgroundDark = const Color(0xFF1A2421).withValues(alpha: 0.82);
+  static Color glassBackgroundDark =
+      const Color(0xFF1A2421).withValues(alpha: 0.82);
 
   static Color glassBorderLight = Colors.white.withValues(alpha: 0.65);
   static Color glassBorderDark = Colors.white.withValues(alpha: 0.12);
@@ -54,17 +61,18 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           borderSide: const BorderSide(color: AppColors.line),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           borderSide: const BorderSide(color: AppColors.line),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           borderSide: const BorderSide(color: AppColors.forest, width: 1.8),
         ),
       ),
@@ -73,7 +81,7 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           side: const BorderSide(color: AppColors.line),
         ),
       ),
@@ -82,7 +90,8 @@ class AppTheme {
           backgroundColor: AppColors.forest,
           foregroundColor: Colors.white,
           minimumSize: const Size(0, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.card)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ),
@@ -113,17 +122,18 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.darkSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           borderSide: const BorderSide(color: AppColors.darkLine),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           borderSide: const BorderSide(color: AppColors.darkLine),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           borderSide: const BorderSide(color: AppColors.leaf, width: 1.8),
         ),
       ),
@@ -132,7 +142,7 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           side: const BorderSide(color: AppColors.darkLine),
         ),
       ),
@@ -141,7 +151,8 @@ class AppTheme {
           backgroundColor: AppColors.leaf,
           foregroundColor: AppColors.ink,
           minimumSize: const Size(0, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.card)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ),

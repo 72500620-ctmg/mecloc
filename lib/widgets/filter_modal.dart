@@ -36,14 +36,46 @@ class _FilterModalState extends State<FilterModal> {
     final provider = context.read<WorkshopProvider>();
 
     final categories = [
-      (cat: WorkshopCategory.mechanic, label: 'Oficina Mecânica', icon: Icons.build_rounded),
-      (cat: WorkshopCategory.carWash, label: 'Lava-Jato', icon: Icons.local_car_wash_rounded),
-      (cat: WorkshopCategory.autoCenter, label: 'Centro Automotivo', icon: Icons.garage_rounded),
-      (cat: WorkshopCategory.oilChange, label: 'Troca de Óleo', icon: Icons.opacity_rounded),
-      (cat: WorkshopCategory.tireShop, label: 'Borracharia & Pneus', icon: Icons.radio_button_checked_rounded),
-      (cat: WorkshopCategory.detailing, label: 'Estética Automotiva', icon: Icons.auto_awesome_rounded),
-      (cat: WorkshopCategory.bodyPaint, label: 'Funilaria e Pintura', icon: Icons.format_paint_rounded),
-      (cat: WorkshopCategory.specialist, label: 'Especializada em Marcas', icon: Icons.verified_user_rounded),
+      (
+        cat: WorkshopCategory.mechanic,
+        label: 'Oficina Mecânica',
+        icon: Icons.build_rounded
+      ),
+      (
+        cat: WorkshopCategory.carWash,
+        label: 'Lava-Jato',
+        icon: Icons.local_car_wash_rounded
+      ),
+      (
+        cat: WorkshopCategory.autoCenter,
+        label: 'Centro Automotivo',
+        icon: Icons.garage_rounded
+      ),
+      (
+        cat: WorkshopCategory.oilChange,
+        label: 'Troca de Óleo',
+        icon: Icons.opacity_rounded
+      ),
+      (
+        cat: WorkshopCategory.tireShop,
+        label: 'Borracharia & Pneus',
+        icon: Icons.radio_button_checked_rounded
+      ),
+      (
+        cat: WorkshopCategory.detailing,
+        label: 'Estética Automotiva',
+        icon: Icons.auto_awesome_rounded
+      ),
+      (
+        cat: WorkshopCategory.bodyPaint,
+        label: 'Funilaria e Pintura',
+        icon: Icons.format_paint_rounded
+      ),
+      (
+        cat: WorkshopCategory.specialist,
+        label: 'Especializada em Marcas',
+        icon: Icons.verified_user_rounded
+      ),
     ];
 
     return Container(
@@ -125,14 +157,15 @@ class _FilterModalState extends State<FilterModal> {
                         ),
                         Text(
                           'Filtrar oficinas especializadas no seu ${widget.activeVehicle!.shortName}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.muted),
                         ),
                       ],
                     ),
                   ),
                   Switch(
                     value: _onlyCompatible,
-                    activeColor: AppColors.forest,
+                    activeThumbColor: AppColors.forest,
                     onChanged: (val) => setState(() => _onlyCompatible = val),
                   ),
                 ],
@@ -165,15 +198,21 @@ class _FilterModalState extends State<FilterModal> {
                 labelStyle: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : (isDark ? Colors.white70 : AppColors.ink),
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.white70 : AppColors.ink),
                 ),
-                backgroundColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+                backgroundColor: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.04),
                 selectedColor: AppColors.forest,
                 checkmarkColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: isSelected ? AppColors.forest : (isDark ? Colors.white12 : Colors.black12),
+                    color: isSelected
+                        ? AppColors.forest
+                        : (isDark ? Colors.white12 : Colors.black12),
                   ),
                 ),
                 onSelected: (val) {

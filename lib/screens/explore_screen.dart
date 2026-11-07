@@ -2,19 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/workshop.dart';
+
 import '../providers/vehicle_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/expandable_bottom_sheet.dart';
-import '../widgets/filter_modal.dart';
-import '../widgets/floating_search_bar.dart';
-import '../widgets/liquid_glass.dart';
-import '../widgets/map_marker_pin.dart';
-import '../widgets/vehicle_picker_modal.dart';
-import '../widgets/workshop_preview_card.dart';
+import '../widgets/app_notice.dart';
+import '../widgets/workshop_list_tile.dart';
+import 'quotes_screen.dart';
 import 'workshop_detail_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -25,85 +23,141 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  final MapController _mapController = MapController();
-
-  void _openFilterModal() {
-    final vehicleProvider = context.read<VehicleProvider>();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => FilterModal(activeVehicle: vehicleProvider.activeVehicle),
+  Widget _categoryChip(BuildContext context, WorkshopProvider provider,
+      WorkshopCategory category, String label) {
+    final selected = provider.selectedCategory == category;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => provider.setSelectedCategory(category),
     );
   }
 
-  void _openVehicleModal() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const VehiclePickerModal(),
-    );
+  final _cityController = TextEditingController();
+  final _mapController = MapController();
+  LatLng? _lastCentered;
+  bool _usingDeviceLocation = true;
+  static const _initialCenter = LatLng(-15.7939, -47.8828);
+  LatLng? _currentMapCenter;
+  bool _showSearchThisArea = false;
+  static const _distance = Distance();
+
+  @override
+  void dispose() {
+    _cityController.dispose();
+    _mapController.dispose();
+    super.dispose();
   }
 
-  void _recenterLocation() {
-    final provider = context.read<WorkshopProvider>();
-    final center = provider.searchCenter;
-    if (center != null) {
-      _mapController.move(center, 14.0);
-    }
-  }
-
-  void _onMarkerTapped(Workshop workshop) {
-    final provider = context.read<WorkshopProvider>();
-    provider.setSelectedWorkshop(workshop);
-    if (workshop.latitude != null && workshop.longitude != null) {
-      _mapController.move(
-        LatLng(workshop.latitude! - 0.005, workshop.longitude!),
-        14.5,
+  Future<void> _searchCity() async {
+    final city = _cityController.text.trim();
+    if (city.isNotEmpty) _usingDeviceLocation = false;
+    context.read<WorkshopProvider>().setSearchQuery('');
+    if (city.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Digite uma cidade ou endereço para pesquisar.')),
       );
+      return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _showSearchThisArea = false);
+    await context.read<WorkshopProvider>().searchWorkshops(city: city);
   }
+
+  Future<void> _searchNearby() async {
+    _cityController.clear();
+    _usingDeviceLocation = true;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _showSearchThisArea = false);
+    await context.read<WorkshopProvider>().searchWorkshops();
+  }
+
+  Future<void> _searchThisArea() async {
+    final targetCenter = _currentMapCenter;
+    if (targetCenter == null) return;
+    setState(() {
+      _showSearchThisArea = false;
+      _usingDeviceLocation = false;
+    });
+    FocusManager.instance.primaryFocus?.unfocus();
+    await context
+        .read<WorkshopProvider>()
+        .searchWorkshops(customCenter: targetCenter);
+  }
+
+  void _openQuotes() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const QuotesScreen()),
+    );
+  }
+
+  Future<void> _retrySearch() =>
+      _cityController.text.trim().isEmpty ? _searchNearby() : _searchCity();
 
   @override
   Widget build(BuildContext context) {
-    final workshopProvider = context.watch<WorkshopProvider>();
-    final vehicleProvider = context.watch<VehicleProvider>();
-    final activeVehicle = vehicleProvider.activeVehicle;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = context.watch<WorkshopProvider>();
+    final vehicle = context.watch<VehicleProvider>().activeVehicle;
+    final results = provider.getFilteredWorkshops(vehicle);
+    final center = provider.searchCenter ?? _initialCenter;
 
-    final filteredWorkshops = workshopProvider.getFilteredWorkshops(activeVehicle);
-    final center = workshopProvider.searchCenter ?? const LatLng(-23.561684, -46.655981);
-    final selectedWorkshop = workshopProvider.selectedWorkshop;
+    if (provider.searchCenter != null &&
+        provider.searchCenter != _lastCentered) {
+      _lastCentered = provider.searchCenter;
+      _showSearchThisArea = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _mapController.move(center, 13);
+      });
+    }
 
-    final markers = filteredWorkshops
+    final markers = results
         .where((w) => w.latitude != null && w.longitude != null)
-        .map(
-          (w) => Marker(
-            point: LatLng(w.latitude!, w.longitude!),
-            width: 52,
-            height: 56,
-            child: MapMarkerPin(
-              workshop: w,
-              isSelected: selectedWorkshop?.id == w.id,
-              onTap: () => _onMarkerTapped(w),
-            ),
-          ),
-        )
+        .map((w) => Marker(
+              point: LatLng(w.latitude!, w.longitude!),
+              width: 48,
+              height: 48,
+              child: IconButton(
+                tooltip: 'Ver ${w.name}',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => WorkshopDetailScreen(workshop: w),
+                  ),
+                ),
+                icon: const Icon(Icons.location_on, size: 38),
+                color: AppColors.forest,
+              ),
+            ))
         .toList();
 
     return Scaffold(
       body: Stack(
         children: [
-          // 1. MAPA OCUPANDO TODA A TELA (Plano de fundo principal)
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: center,
-              initialZoom: 13.5,
-              onTap: (_, __) {
-                if (workshopProvider.selectedWorkshop != null) {
-                  workshopProvider.setSelectedWorkshop(null);
+              initialZoom: 5,
+              onPositionChanged: (camera, hasGesture) {
+                if (hasGesture) {
+                  _currentMapCenter = camera.center;
+                  final currentSearched = provider.searchCenter;
+                  if (currentSearched != null) {
+                    final dist = _distance.as(
+                      LengthUnit.Meter,
+                      currentSearched,
+                      camera.center,
+                    );
+                    if (dist > 1500 && !_showSearchThisArea) {
+                      setState(() => _showSearchThisArea = true);
+                    }
+                  }
                 }
+              },
+              onMapReady: () {
+                final current = provider.searchCenter;
+                if (current != null) _mapController.move(current, 13);
               },
             ),
             children: [
@@ -112,99 +166,308 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 userAgentPackageName: 'com.example.mecloc',
                 maxZoom: 19,
               ),
-              MarkerLayer(markers: markers),
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap',
-                    onTap: () => launchUrl(
-                      Uri.parse('https://www.openstreetmap.org/copyright'),
-                    ),
+              MarkerLayer(markers: [
+                if (_usingDeviceLocation && provider.searchCenter != null)
+                  Marker(
+                    point: provider.searchCenter!,
+                    width: 44,
+                    height: 44,
+                    child: const Icon(Icons.my_location,
+                        color: Colors.blue, size: 30),
                   ),
-                ],
-              ),
+                ...markers,
+              ]),
+              RichAttributionWidget(attributions: [
+                TextSourceAttribution(
+                  'OpenStreetMap',
+                  onTap: () => launchUrl(
+                    Uri.parse('https://www.openstreetmap.org/copyright'),
+                  ),
+                ),
+              ]),
             ],
           ),
-
-          // 2. BOTÕES FLUTUANTES DO MAPA (Recenter, Zoom)
           Positioned(
-            right: 16,
-            top: MediaQuery.of(context).padding.top + 95,
-            child: Column(
-              children: [
-                LiquidGlassIconButton(
-                  icon: Icons.my_location_rounded,
-                  tooltip: 'Minha localização',
-                  iconColor: AppColors.forest,
-                  onPressed: _recenterLocation,
+            top: MediaQuery.paddingOf(context).top + 10,
+            left: 14,
+            right: 14,
+            child: Material(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+              color: Theme.of(context).colorScheme.surface,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.floating),
+                side: BorderSide(
+                  color: isDark ? AppColors.darkLine : AppColors.line,
+                  width: 1,
                 ),
-                const SizedBox(height: 10),
-                LiquidGlassIconButton(
-                  icon: Icons.add_rounded,
-                  tooltip: 'Aproximar mapa',
-                  onPressed: () {
-                    _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom + 1,
-                    );
+              ),
+              child: SizedBox(
+                height: 56,
+                child: TextField(
+                  controller: _cityController,
+                  textAlignVertical: TextAlignVertical.center,
+                  textInputAction: TextInputAction.search,
+                  onChanged: (value) {
+                    setState(() {});
+                    context.read<WorkshopProvider>().setSearchQuery(value);
                   },
-                ),
-                const SizedBox(height: 6),
-                LiquidGlassIconButton(
-                  icon: Icons.remove_rounded,
-                  tooltip: 'Afastar mapa',
-                  onPressed: () {
-                    _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom - 1,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // 3. BARRA DE PESQUISA FLUTUANTE (No topo sobreposta ao mapa)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 0,
-            right: 0,
-            child: FloatingSearchBar(
-              onOpenFilterModal: _openFilterModal,
-              onOpenVehicleModal: _openVehicleModal,
-            ),
-          ),
-
-          // 4. BOTTOM SHEET PRINCIPAL EXPANSÍVEL (Estilo Uber)
-          ExpandableBottomSheet(
-            workshops: filteredWorkshops,
-            activeVehicle: activeVehicle,
-            onOpenVehicleModal: _openVehicleModal,
-          ),
-
-          // 5. PREVIEW CARD DO ESTABELECIMENTO SELECIONADO (Sobreposto quando pin é tocado)
-          if (selectedWorkshop != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 140,
-              child: WorkshopPreviewCard(
-                workshop: selectedWorkshop,
-                activeVehicle: activeVehicle,
-                onTapDetail: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => WorkshopDetailScreen(workshop: selectedWorkshop),
+                  onSubmitted: (_) => _searchCity(),
+                  decoration: InputDecoration(
+                    filled: false,
+                    hintText: 'Buscar cidade, bairro ou oficina...',
+                    prefixIcon: IconButton(
+                      tooltip: 'Buscar',
+                      onPressed: _searchCity,
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                  );
-                },
-                onClose: () => workshopProvider.setSelectedWorkshop(null),
+                    suffixIcon: _cityController.text.isNotEmpty
+                        ? IconButton(
+                            tooltip: 'Limpar',
+                            icon: const Icon(Icons.clear_rounded, size: 20),
+                            onPressed: () {
+                              _cityController.clear();
+                              context
+                                  .read<WorkshopProvider>()
+                                  .setSearchQuery('');
+                              setState(() {});
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 16),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 52,
+                      minHeight: 56,
+                    ),
+                  ),
+                ),
               ),
             ),
+          ),
+          if (_showSearchThisArea)
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 76,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  elevation: 5,
+                  shadowColor:
+                      Colors.black.withValues(alpha: isDark ? 0.35 : 0.18),
+                  color: Theme.of(context).colorScheme.surface,
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isDark ? AppColors.darkLine : AppColors.line,
+                      width: 1,
+                    ),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: provider.isLoading ? null : _searchThisArea,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 9),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh_rounded,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Buscar nesta área',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Positioned.fill(
+            top: MediaQuery.paddingOf(context).top + 76,
+            bottom: 0,
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.5,
+              minChildSize: 0.16,
+              maxChildSize: 0.82,
+              snap: true,
+              snapSizes: const [0.5, 0.82],
+              builder: (context, scrollController) => Material(
+                elevation: 4,
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppRadii.sheet)),
+                clipBehavior: Clip.antiAlias,
+                child: ListView(
+                  controller: scrollController,
+                  padding: EdgeInsets.only(
+                    bottom: 110 + MediaQuery.viewPaddingOf(context).bottom,
+                  ),
+                  children: [
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 10),
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 2, 18, 12),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                provider.isLoading
+                                    ? 'Procurando oficinas…'
+                                    : provider.hasSearched
+                                        ? 'Oficinas nesta região'
+                                        : 'Cuide do seu carro por perto',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                provider.isLoading
+                                    ? 'Aguarde enquanto consultamos o mapa.'
+                                    : provider.hasSearched
+                                        ? '${results.length} resultado(s) • dados do OpenStreetMap'
+                                        : 'Encontre serviços automotivos e fale direto com a oficina.',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (provider.isLoading)
+                          const SizedBox.square(
+                            dimension: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ]),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 2, 18, 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: !provider.hasSearched ||
+                                provider.errorMessage != null
+                            ? FilledButton.icon(
+                                onPressed:
+                                    provider.isLoading ? null : _searchNearby,
+                                icon: const Icon(Icons.my_location, size: 18),
+                                label: const Text('Buscar perto de mim'),
+                              )
+                            : TextButton.icon(
+                                onPressed:
+                                    provider.isLoading ? null : _searchNearby,
+                                icon: const Icon(Icons.my_location, size: 18),
+                                label: const Text('Minha localização'),
+                              ),
+                      ),
+                    ),
+                    if (provider.errorMessage != null)
+                      AppNotice(
+                        title: 'Não foi possível concluir a busca',
+                        message: provider.errorMessage!,
+                        tone: AppNoticeTone.error,
+                        action: TextButton(
+                          onPressed: provider.isLoading ? null : _retrySearch,
+                          child: const Text('Tentar novamente'),
+                        ),
+                      ),
+                    if (provider.isLoading)
+                      const AppNotice(
+                        title: 'Atualizando esta região',
+                        message:
+                            'Estamos consultando localização e oficinas próximas.',
+                        tone: AppNoticeTone.info,
+                      ),
+                    if (!provider.isLoading &&
+                        provider.errorMessage == null &&
+                        results.isEmpty &&
+                        provider.hasSearched)
+                      const AppNotice(
+                        title: 'Nenhuma oficina encontrada',
+                        message:
+                            'Tente outra cidade ou mova o mapa para uma área próxima.',
+                        tone: AppNoticeTone.warning,
+                      ),
+                    if (!provider.hasSearched)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 22, 18, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Explore por tipo',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 10),
+                            Wrap(spacing: 8, runSpacing: 4, children: [
+                              _categoryChip(context, provider,
+                                  WorkshopCategory.mechanic, 'Mecânica'),
+                              _categoryChip(context, provider,
+                                  WorkshopCategory.carWash, 'Lava-jato'),
+                              _categoryChip(context, provider,
+                                  WorkshopCategory.tireShop, 'Pneus'),
+                            ]),
+                            const SizedBox(height: 18),
+                            const Text(
+                                'Os dados disponíveis variam por oficina. Confirme telefone, serviços e horário diretamente com o estabelecimento.'),
+                          ],
+                        ),
+                      ),
+                    if (!provider.isLoading)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        child: Material(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(AppRadii.card),
+                          child: ListTile(
+                            leading: const Icon(Icons.request_quote_outlined),
+                            title: const Text('Orçamentos demonstrativos'),
+                            subtitle: const Text(
+                                'Simulações locais, sem envio a oficinas.'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: _openQuotes,
+                          ),
+                        ),
+                      ),
+                    if (!provider.isLoading && results.isNotEmpty)
+                      for (final workshop in results)
+                        WorkshopListTile(workshop: workshop),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
-

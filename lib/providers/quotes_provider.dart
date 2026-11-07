@@ -19,37 +19,9 @@ class QuotesProvider extends ChangeNotifier {
 
     if (jsonList != null && jsonList.isNotEmpty) {
       _quotes = jsonList
-          .map((item) => QuoteRequest.fromJson(jsonDecode(item) as Map<String, dynamic>))
+          .map((item) =>
+              QuoteRequest.fromJson(jsonDecode(item) as Map<String, dynamic>))
           .toList();
-    } else {
-      // Propostas padrão iniciais demonstrativas
-      _quotes = [
-        QuoteRequest(
-          id: 'quote_1',
-          workshopId: 'w_demo_1',
-          workshopName: 'Precision Tech Oficina Mecânica',
-          serviceName: 'Revisão Preventiva Geral (40 itens)',
-          estimatedPrice: 'A partir de R\$ 320',
-          estimatedDeadline: '1 dia útil',
-          vehicleName: 'Volkswagen Golf Highline',
-          status: 'pending',
-          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-          notes: 'Inclui diagnóstico computadorizado e checkup completo.',
-        ),
-        QuoteRequest(
-          id: 'quote_2',
-          workshopId: 'w_demo_2',
-          workshopName: 'Auto Center Aliança & Freios',
-          serviceName: 'Troca de Pastilhas Dianteiras Cerâmica',
-          estimatedPrice: 'A partir de R\$ 260',
-          estimatedDeadline: 'Hoje (em 2 horas)',
-          vehicleName: 'Volkswagen Golf Highline',
-          status: 'scheduled',
-          createdAt: DateTime.now().subtract(const Duration(days: 1)),
-          notes: 'Peças em estoque para pronto atendimento.',
-        ),
-      ];
-      await _save();
     }
 
     _isLoaded = true;
@@ -103,4 +75,3 @@ class QuotesProvider extends ChangeNotifier {
     await prefs.setStringList(_quotesKey, jsonList);
   }
 }
-

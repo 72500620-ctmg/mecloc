@@ -6,6 +6,7 @@ import '../providers/vehicle_provider.dart';
 import '../theme/app_theme.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
+import 'settings_screen.dart';
 import 'vehicle_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -71,7 +72,8 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 6),
                       if (activeVehicle != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: AppColors.leaf.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(8),
@@ -108,30 +110,37 @@ class ProfileScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isDark ? AppColors.darkLine : AppColors.line),
+              border: Border.all(
+                  color: isDark ? AppColors.darkLine : AppColors.line),
             ),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.login_rounded, color: AppColors.forest),
+                  leading:
+                      const Icon(Icons.login_rounded, color: AppColors.forest),
                   title: const Text('Entrar com outra conta'),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute<void>(
+                          builder: (_) => const LoginScreen()),
                     );
                   },
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.forest),
+                  leading: const Icon(Icons.person_add_alt_1_rounded,
+                      color: AppColors.forest),
                   title: const Text('Criar novo cadastro'),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => const RegisterScreen()),
+                      MaterialPageRoute<void>(
+                          builder: (_) => const RegisterScreen()),
                     );
                   },
                 ),
@@ -155,31 +164,42 @@ class ProfileScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isDark ? AppColors.darkLine : AppColors.line),
+              border: Border.all(
+                  color: isDark ? AppColors.darkLine : AppColors.line),
             ),
             child: Column(
               children: [
-                SwitchListTile(
-                  secondary: Icon(
-                    isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                    color: AppColors.forest,
+                ListTile(
+                  leading: const Icon(Icons.palette_outlined,
+                      color: AppColors.forest),
+                  title: const Text('Tema do aplicativo'),
+                  subtitle: Text(switch (themeProvider.themeMode) {
+                    ThemeMode.system => 'Automático (sistema)',
+                    ThemeMode.light => 'Claro',
+                    ThemeMode.dark => 'Escuro',
+                  }),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen()),
                   ),
-                  title: const Text('Modo Escuro (Dark Mode)'),
-                  subtitle: const Text('Design System Liquid Glass adaptativo'),
-                  value: themeProvider.isDarkMode,
-                  activeColor: AppColors.forest,
-                  onChanged: (val) => themeProvider.toggleTheme(),
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.directions_car_filled_rounded, color: AppColors.forest),
+                  leading: const Icon(Icons.directions_car_filled_rounded,
+                      color: AppColors.forest),
                   title: const Text('Gerenciar Veículos'),
-                  subtitle: Text('${vehicleProvider.vehicles.length} veículos cadastrados'),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  subtitle: Text(
+                      '${vehicleProvider.vehicles.length} veículos cadastrados'),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => const VehicleScreen()),
+                      MaterialPageRoute<void>(
+                          builder: (_) => const VehicleScreen()),
                     );
                   },
                 ),
@@ -203,20 +223,25 @@ class ProfileScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isDark ? AppColors.darkLine : AppColors.line),
+              border: Border.all(
+                  color: isDark ? AppColors.darkLine : AppColors.line),
             ),
             child: const Column(
               children: [
                 ListTile(
-                  leading: Icon(Icons.info_outline_rounded, color: AppColors.forest),
+                  leading:
+                      Icon(Icons.info_outline_rounded, color: AppColors.forest),
                   title: Text('Sobre a Plataforma MecLoc'),
-                  subtitle: Text('Versão 2.0 • Mobilidade e Cuidados Automotivos'),
+                  subtitle:
+                      Text('Versão 2.0 • Mobilidade e Cuidados Automotivos'),
                 ),
                 Divider(height: 1),
                 ListTile(
-                  leading: Icon(Icons.verified_user_outlined, color: AppColors.forest),
+                  leading: Icon(Icons.verified_user_outlined,
+                      color: AppColors.forest),
                   title: Text('Privacidade e Termos de Uso'),
-                  subtitle: Text('Dados abertos do OpenStreetMap e dados locais'),
+                  subtitle:
+                      Text('Dados abertos do OpenStreetMap e dados locais'),
                 ),
               ],
             ),
@@ -226,4 +251,3 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
-

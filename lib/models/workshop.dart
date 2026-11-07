@@ -43,12 +43,12 @@ class Workshop {
     this.openStreetMapUrl,
     this.category = 'Oficina Mecânica',
     this.categoryType = WorkshopCategory.mechanic,
-    this.supportedBrands = const ['Todas as marcas'],
-    this.specialties = const ['Mecânica Geral', 'Injeção Eletrônica', 'Freios'],
+    this.supportedBrands = const [],
+    this.specialties = const [],
     this.services = const [],
-    this.isOpenNow = true,
-    this.openingHours = 'Seg - Sex: 08:00 - 18:00 | Sáb: 08:00 - 12:00',
-    this.isVerified = true,
+    this.isOpenNow = false,
+    this.openingHours = 'Horário não informado',
+    this.isVerified = false,
     this.priceLevel = 'R\$ \$\$',
     this.distanceKm,
     this.imageUrl,
@@ -119,12 +119,30 @@ class Workshop {
     }
   }
 
+  String get googleMapsUrl {
+    final query = (address.isNotEmpty && address != 'Endereço não informado')
+        ? '$name, $address'
+        : (latitude != null && longitude != null)
+            ? '$latitude,$longitude'
+            : name;
+    return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}';
+  }
+
+  String? get googleMapsDirectionsUrl {
+    if (latitude != null && longitude != null) {
+      return 'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude';
+    }
+    return null;
+  }
+
   CompatibilityResult calculateCompatibility(Vehicle? vehicle) {
     if (vehicle == null) {
       return const CompatibilityResult(
         percentage: 95,
         label: 'Compatível com serviços gerais',
-        reasons: ['Oficina qualificada para manutenções preventivas e periódicas'],
+        reasons: [
+          'Oficina qualificada para manutenções preventivas e periódicas'
+        ],
         isHighMatch: false,
         accentColor: Color(0xFF174D43),
       );
@@ -142,15 +160,21 @@ class Workshop {
     });
 
     final isBrandSpecialist = supportedBrands.any((b) =>
-        b.toLowerCase().contains(brandLower) && b.toLowerCase() != 'todas as marcas');
+        b.toLowerCase().contains(brandLower) &&
+        b.toLowerCase() != 'todas as marcas');
 
-    final transmissionSpecialist = vehicle.transmission.toLowerCase().contains('auto') &&
-        specialties.any((s) => s.toLowerCase().contains('câmbio') || s.toLowerCase().contains('transmissão'));
+    final transmissionSpecialist =
+        vehicle.transmission.toLowerCase().contains('auto') &&
+            specialties.any((s) =>
+                s.toLowerCase().contains('câmbio') ||
+                s.toLowerCase().contains('transmissão'));
 
     final turboSpecialist = (vehicle.engine.toLowerCase().contains('tsi') ||
             vehicle.engine.toLowerCase().contains('turbo') ||
             vehicle.engine.toLowerCase().contains('thp')) &&
-        specialties.any((s) => s.toLowerCase().contains('turbo') || s.toLowerCase().contains('injeção'));
+        specialties.any((s) =>
+            s.toLowerCase().contains('turbo') ||
+            s.toLowerCase().contains('injeção'));
 
     final reasons = <String>[];
     int score = 80;
@@ -174,7 +198,8 @@ class Workshop {
     }
 
     if (reasons.isEmpty) {
-      reasons.add('Atendimento e peças compatíveis com seu ${vehicle.shortName}');
+      reasons
+          .add('Atendimento e peças compatíveis com seu ${vehicle.shortName}');
     }
 
     final finalScore = score.clamp(70, 100);
@@ -258,9 +283,6 @@ class Workshop {
     final rawName = tags['name'] as String? ?? 'Oficina mecânica';
     final parsedCategory = _detectCategory(tags, rawName);
 
-    // Gera lista inteligente de serviços e dados enriquecidos
-    final defaultServices = _generateServicesForCategory(parsedCategory.$1);
-
     return Workshop(
       id: 'osm:$type:$id',
       name: rawName,
@@ -274,13 +296,7 @@ class Workshop {
       ratingCount: int.tryParse(tags['rating:count']?.toString() ?? ''),
       category: parsedCategory.$2,
       categoryType: parsedCategory.$1,
-      supportedBrands: _detectSupportedBrands(rawName),
-      specialties: _detectSpecialties(parsedCategory.$1, rawName),
-      services: defaultServices,
-      isOpenNow: true,
-      openingHours: tags['opening_hours'] as String? ?? 'Seg - Sex: 08:00 - 18:00',
-      isVerified: true,
-      priceLevel: 'R\$ \$\$',
+      openingHours: tags['opening_hours'] as String? ?? 'Horário não informado',
     );
   }
 
@@ -292,238 +308,11 @@ class Workshop {
 
   static (WorkshopCategory, String) _detectCategory(
       Map<String, dynamic> tags, String name) {
-    final lower = name.toLowerCase();
-    final shopTag = tags['shop'] as String? ?? '';
-    final amenityTag = tags['amenity'] as String? ?? '';
-
-    if (amenityTag == 'car_wash' ||
-        lower.contains('lava') ||
-        lower.contains('lavagem') ||
-        lower.contains('estética') ||
-        lower.contains('detailing')) {
-      if (lower.contains('estética') || lower.contains('detailing') || lower.contains('polimento')) {
-        return (WorkshopCategory.detailing, 'Estética Automotiva');
-      }
-      return (WorkshopCategory.carWash, 'Lava-Jato');
+    if (tags['amenity'] == 'car_wash') {
+      return (WorkshopCategory.carWash, 'Lava-jato');
     }
-
-    if (shopTag == 'tyres' ||
-        lower.contains('pneu') ||
-        lower.contains('borracharia')) {
-      return (WorkshopCategory.tireShop, 'Borracharia & Pneus');
-    }
-
-    if (lower.contains('óleo') || lower.contains('oleo') || lower.contains('lubrificante')) {
-      return (WorkshopCategory.oilChange, 'Troca de Óleo');
-    }
-
-    if (lower.contains('funilaria') || lower.contains('pintura') || lower.contains('martelinho')) {
-      return (WorkshopCategory.bodyPaint, 'Funilaria e Pintura');
-    }
-
-    if (lower.contains('auto center') || lower.contains('autocenter') || lower.contains('centro automotivo')) {
-      return (WorkshopCategory.autoCenter, 'Centro Automotivo');
-    }
-
-    if (lower.contains('especializada') ||
-        lower.contains('volkswagen') ||
-        lower.contains('honda') ||
-        lower.contains('toyota') ||
-        lower.contains('bmw')) {
-      return (WorkshopCategory.specialist, 'Especializada em Marcas');
-    }
-
-    return (WorkshopCategory.mechanic, 'Oficina Mecânica');
-  }
-
-  static List<String> _detectSupportedBrands(String name) {
-    final lower = name.toLowerCase();
-    final brands = <String>[];
-    if (lower.contains('volkswagen') || lower.contains('vw') || lower.contains('audi')) {
-      brands.addAll(['Volkswagen', 'Audi', 'Porsche']);
-    }
-    if (lower.contains('honda') || lower.contains('toyota') || lower.contains('japones')) {
-      brands.addAll(['Honda', 'Toyota', 'Nissan', 'Mitsubishi']);
-    }
-    if (lower.contains('bmw') || lower.contains('mercedes') || lower.contains('alema')) {
-      brands.addAll(['BMW', 'Mercedes-Benz', 'Mini']);
-    }
-    if (lower.contains('fiat') || lower.contains('jeep')) {
-      brands.addAll(['Fiat', 'Jeep', 'Ram']);
-    }
-    if (lower.contains('chevrolet') || lower.contains('gm')) {
-      brands.addAll(['Chevrolet']);
-    }
-
-    if (brands.isEmpty) {
-      brands.addAll(['Todas as marcas', 'Nacionais e Importados']);
-    }
-    return brands;
-  }
-
-  static List<String> _detectSpecialties(WorkshopCategory cat, String name) {
-    switch (cat) {
-      case WorkshopCategory.carWash:
-        return ['Lavagem Ecológica', 'Higienização de Bancos', 'Cera de Carnaúba'];
-      case WorkshopCategory.detailing:
-        return ['Polimento Técnico', 'Vitrificação Cerâmica', 'Revitalização de Faróis'];
-      case WorkshopCategory.oilChange:
-        return ['Troca de Óleo a Vácuo', 'Filtros Originais', 'Flushing de Motor'];
-      case WorkshopCategory.tireShop:
-        return ['Alinhamento 3D', 'Balanceamento Computadorizado', 'Vulcanização'];
-      case WorkshopCategory.bodyPaint:
-        return ['Martelinho de Ouro', 'Pintura em Estufa', 'Reparos Rápidos'];
-      case WorkshopCategory.autoCenter:
-        return ['Revisão Preventiva', 'Freios ABS', 'Suspensão e Amortecedores', 'Ar-condicionado'];
-      case WorkshopCategory.specialist:
-        return ['Diagnóstico por Scanner Original', 'Câmbio Automático', 'Injeção Direta TSI/TFSI'];
-      case WorkshopCategory.mechanic:
-        return ['Mecânica Geral', 'Injeção Eletrônica', 'Freios e Discos', 'Embreagem'];
-    }
-  }
-
-  static List<AutomotiveService> _generateServicesForCategory(WorkshopCategory cat) {
-    switch (cat) {
-      case WorkshopCategory.carWash:
-        return const [
-          AutomotiveService(
-            id: 'cw_1',
-            name: 'Lavagem Completa com Cera',
-            category: 'Lavagem',
-            estimatedPrice: 70.0,
-            estimatedDuration: '45 min',
-            description: 'Limpeza de lataria, aspiração interna, silicone e aplicação de cera protetora.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'cw_2',
-            name: 'Higienização Interna e Bancos',
-            category: 'Higienização',
-            estimatedPrice: 220.0,
-            estimatedDuration: '2h 30min',
-            description: 'Lavagem e sanitização profunda de estofados, forro e carpetes.',
-          ),
-        ];
-      case WorkshopCategory.detailing:
-        return const [
-          AutomotiveService(
-            id: 'dt_1',
-            name: 'Polimento Técnico Comercial',
-            category: 'Estética',
-            estimatedPrice: 450.0,
-            estimatedDuration: '4 horas',
-            description: 'Remoção de micro-riscos, swirls e aplicação de selante sintético de alto brilho.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'dt_2',
-            name: 'Vitrificação de Pintura (Graphene Coating)',
-            category: 'Proteção',
-            estimatedPrice: 1200.0,
-            estimatedDuration: '1 dia',
-            description: 'Proteção cerâmica de alta dureza com garantia e repelência hídrica de 3 anos.',
-          ),
-        ];
-      case WorkshopCategory.oilChange:
-        return const [
-          AutomotiveService(
-            id: 'oc_1',
-            name: 'Troca de Óleo 100% Sintético + Filtro',
-            category: 'Lubrificação',
-            estimatedPrice: 180.0,
-            estimatedDuration: '30 min',
-            description: 'Substituição de óleo sintético especificado e troca de filtro de óleo novo.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'oc_2',
-            name: 'Pacote de 4 Filtros (Óleo, Ar, Combustível e Cabine)',
-            category: 'Filtros',
-            estimatedPrice: 140.0,
-            estimatedDuration: '40 min',
-            description: 'Troca preventiva de todos os filtros vitais do veículo.',
-          ),
-        ];
-      case WorkshopCategory.tireShop:
-        return const [
-          AutomotiveService(
-            id: 'ts_1',
-            name: 'Alinhamento 3D + Balanceamento 4 Rodas',
-            category: 'Geometria',
-            estimatedPrice: 120.0,
-            estimatedDuration: '45 min',
-            description: 'Medição a laser dos ângulos de suspensão e balanceamento de precisão.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'ts_2',
-            name: 'Conserto de Pneu / Reparo a Frio',
-            category: 'Pneus',
-            estimatedPrice: 40.0,
-            estimatedDuration: '20 min',
-            description: 'Conserto interno com plugue reforçado e teste de estanqueidade.',
-          ),
-        ];
-      case WorkshopCategory.bodyPaint:
-        return const [
-          AutomotiveService(
-            id: 'bp_1',
-            name: 'Martelinho de Ouro (por peça)',
-            category: 'Funilaria',
-            estimatedPrice: 150.0,
-            estimatedDuration: '1 hora',
-            description: 'Remoção de amassados sem danificar a pintura original de fábrica.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'bp_2',
-            name: 'Pintura de Para-choque em Estufa',
-            category: 'Pintura',
-            estimatedPrice: 480.0,
-            estimatedDuration: '1 dia',
-            description: 'Preparação, acerto de cor computadorizado e verniz bicomponente premium.',
-          ),
-        ];
-      case WorkshopCategory.autoCenter:
-      case WorkshopCategory.specialist:
-      case WorkshopCategory.mechanic:
-        return const [
-          AutomotiveService(
-            id: 'mc_1',
-            name: 'Revisão Preventiva Completa',
-            category: 'Mecânica',
-            estimatedPrice: 280.0,
-            estimatedDuration: '2 horas',
-            description: 'Checkup de 40 itens essenciais: suspensão, freios, fluidos, correias e bateria.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'mc_2',
-            name: 'Troca de Pastilhas e Discos de Freio',
-            category: 'Freios',
-            estimatedPrice: 250.0,
-            estimatedDuration: '1h 30min',
-            description: 'Substituição das pastilhas dianteiras e sangria do fluido de freio DOT 4.',
-            popular: true,
-          ),
-          AutomotiveService(
-            id: 'mc_3',
-            name: 'Diagnóstico Eletrônico com Scanner',
-            category: 'Injeção',
-            estimatedPrice: 120.0,
-            estimatedDuration: '40 min',
-            description: 'Varredura de códigos de falha em todas as ECUs, sensores e atuadores.',
-          ),
-          AutomotiveService(
-            id: 'mc_4',
-            name: 'Higienização de Ar-Condicionado + Filtro de Cabine',
-            category: 'Climatização',
-            estimatedPrice: 130.0,
-            estimatedDuration: '30 min',
-            description: 'Oxi-sanitização com gerador de ozônio para eliminação de fungos e odores.',
-          ),
-        ];
-    }
+    if (tags['shop'] == 'tyres') return (WorkshopCategory.tireShop, 'Pneus');
+    return (WorkshopCategory.mechanic, 'Oficina mecânica');
   }
 }
 

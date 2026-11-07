@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,12 +16,17 @@ class WorkshopProvider extends ChangeNotifier {
         _locationService = locationService ?? LocationService();
 
   static const _favoritesKey = 'favorite_workshop_ids';
+  static const _favoriteDataKey = 'favorite_workshop_data';
   static const _recentSearchesKey = 'recent_search_terms';
 
   final OpenStreetMapService _openStreetMapService;
   final LocationService _locationService;
 
   List<Workshop> _workshops = [];
+  final Map<String, Workshop> _savedWorkshops = {};
+  int _searchGeneration = 0;
+  String? _pendingSearch;
+  bool _disposed = false;
   Set<String> _favoriteIds = {};
   List<String> _recentSearches = [];
   bool _isLoading = false;
@@ -46,29 +52,40 @@ class WorkshopProvider extends ChangeNotifier {
   Workshop? get selectedWorkshop => _selectedWorkshop;
   bool get onlyCompatibleWithVehicle => _onlyCompatibleWithVehicle;
 
+  List<Workshop> get favoriteWorkshops => _savedWorkshops.values.toList();
+
   bool isFavorite(String id) => _favoriteIds.contains(id);
 
-  Future<void> initialize() async {
+  Future<void> initialize({bool searchOnStart = true}) async {
     final preferences = await SharedPreferences.getInstance();
     _favoriteIds = preferences.getStringList(_favoritesKey)?.toSet() ?? {};
-    _recentSearches = preferences.getStringList(_recentSearchesKey) ?? [
-      'Troca de óleo para Honda Civic',
-      'Oficina especializada em Volkswagen',
-      'Lava-jato com lavagem detalhada',
-      'Mecânico especializado em câmbio automático',
-      'Troca de pneus perto de mim',
-    ];
-    notifyListeners();
-
-    // Se ainda não buscou, busca automaticamente perto do usuário para carregar o mapa
-    if (!_hasSearched) {
+    _recentSearches = preferences.getStringList(_recentSearchesKey) ?? [];
+    for (final raw
+        in preferences.getStringList(_favoriteDataKey) ?? <String>[]) {
+      try {
+        final data = jsonDecode(raw) as Map<String, dynamic>;
+        final workshop = Workshop.fromOverpassJson(data);
+        if (_favoriteIds.contains(workshop.id)) {
+          _savedWorkshops[workshop.id] = workshop;
+        }
+      } catch (_) {/* Ignore an invalid saved entry. */}
+    }
+    if (!_disposed) notifyListeners();
+    if (searchOnStart && !_disposed && !_hasSearched) {
       await searchWorkshops();
     }
   }
 
   Future<void> searchWorkshops({
     String city = '',
+    LatLng? customCenter,
   }) async {
+    final searchKey = customCenter != null
+        ? '${customCenter.latitude.toStringAsFixed(4)},${customCenter.longitude.toStringAsFixed(4)}'
+        : city.trim().toLowerCase();
+    if (_isLoading && _pendingSearch == searchKey) return;
+    _pendingSearch = searchKey;
+    final generation = ++_searchGeneration;
     _isLoading = true;
     _errorMessage = null;
     _hasSearched = true;
@@ -76,17 +93,29 @@ class WorkshopProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _searchCenter = city.trim().isEmpty
-          ? await _locationService.getCurrentLocation()
-          : await _openStreetMapService.geocodeCity(city);
-      _workshops =
-          await _openStreetMapService.searchNearbyWorkshops(_searchCenter!);
+      final center = customCenter ??
+          (city.trim().isEmpty
+              ? await _locationService.getCurrentLocation()
+              : await _openStreetMapService.geocodeCity(city));
+      if (_disposed || generation != _searchGeneration) return;
+      // Recentrar assim que a localização for resolvida. A consulta de oficinas
+      // pode falhar separadamente, e não deve fazer a busca de cidade parecer
+      // ignorada nem manter o mapa na região anterior.
+      _searchCenter = center;
+      notifyListeners();
+      final results = await _openStreetMapService.searchNearbyWorkshops(center);
+      if (_disposed || generation != _searchGeneration) return;
+      _workshops = results;
     } catch (error) {
+      if (_disposed || generation != _searchGeneration) return;
       _workshops = [];
       _errorMessage = error.toString().replaceFirst('Exception: ', '');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (!_disposed && generation == _searchGeneration) {
+        _isLoading = false;
+        _pendingSearch = null;
+        notifyListeners();
+      }
     }
   }
 
@@ -136,12 +165,38 @@ class WorkshopProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(String workshopId) async {
-    if (!_favoriteIds.add(workshopId)) {
-      _favoriteIds.remove(workshopId);
+    if (_favoriteIds.remove(workshopId)) {
+      _savedWorkshops.remove(workshopId);
+    } else {
+      final matches = _workshops.where((w) => w.id == workshopId);
+      if (matches.isEmpty) return;
+      _favoriteIds.add(workshopId);
+      _savedWorkshops[workshopId] = matches.first;
     }
+    notifyListeners();
     final preferences = await SharedPreferences.getInstance();
     await preferences.setStringList(_favoritesKey, _favoriteIds.toList());
-    notifyListeners();
+    await preferences.setStringList(
+        _favoriteDataKey,
+        _savedWorkshops.values.map((w) {
+          final parts = w.id.split(':');
+          return jsonEncode({
+            'type': parts.length > 1 ? parts[1] : 'node',
+            'id': parts.length > 2 ? int.tryParse(parts[2]) : null,
+            'lat': w.latitude,
+            'lon': w.longitude,
+            'tags': {
+              'name': w.name,
+              'addr:street': w.address,
+              if (w.phone != null) 'phone': w.phone,
+              if (w.openingHours != 'Horário não informado')
+                'opening_hours': w.openingHours,
+              if (w.categoryType == WorkshopCategory.tireShop) 'shop': 'tyres',
+              if (w.categoryType == WorkshopCategory.carWash)
+                'amenity': 'car_wash'
+            },
+          });
+        }).toList());
   }
 
   List<Workshop> getFilteredWorkshops(Vehicle? activeVehicle) {
@@ -188,6 +243,8 @@ class WorkshopProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _searchGeneration++;
     _openStreetMapService.dispose();
     super.dispose();
   }
