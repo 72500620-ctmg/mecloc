@@ -71,17 +71,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _searchCity() async {
-    final city = _cityController.text.trim();
-    if (city.isNotEmpty) _usingDeviceLocation = false;
-    context.read<WorkshopProvider>().setSearchQuery('');
-    if (city.isEmpty) {
+    final query = _cityController.text.trim();
+    if (query.isNotEmpty) _usingDeviceLocation = false;
+    if (query.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digite uma cidade ou endereço para pesquisar.')),
+        const SnackBar(content: Text('Digite o nome da oficina, bairro ou serviço.')),
       );
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
-    await context.read<WorkshopProvider>().searchWorkshops(city: city);
+    await context.read<WorkshopProvider>().searchWorkshops(city: query);
   }
 
   Future<void> _searchNearby() async {
@@ -116,11 +115,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  void _openWorkshopRegistration() {
+  void _openWorkshopRegistration({String? prefilledName}) {
     final searchCenter = context.read<WorkshopProvider>().searchCenter;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => WorkshopRegistrationScreen(
+          initialName: prefilledName,
           initialLatitude: searchCenter?.latitude,
           initialLongitude: searchCenter?.longitude,
         ),
@@ -197,7 +197,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: isDark
+                    ? 'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png'
+                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.mecloc',
                 maxZoom: 19,
               ),
@@ -214,36 +216,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ]),
               RichAttributionWidget(attributions: [
                 TextSourceAttribution(
-                  'OpenStreetMap',
+                  isDark ? '© CARTO, © OpenStreetMap' : 'OpenStreetMap',
                   onTap: () => launchUrl(
-                    Uri.parse('https://www.openstreetmap.org/copyright'),
+                    Uri.parse(isDark
+                        ? 'https://carto.com/attributions'
+                        : 'https://www.openstreetmap.org/copyright'),
                   ),
                 ),
               ]),
             ],
           ),
 
-          // 2. BARRA DE PESQUISA FLUTUANTE (Design System M3)
+          // 2. BARRA DE PESQUISA FLUTUANTE COM LOADING CONJUGADO
           Positioned(
             top: topInset + 12,
             left: _kMapFloatingPadding,
             right: _kMapFloatingPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Material(
-                  elevation: 5,
-                  shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
-                  color: Theme.of(context).colorScheme.surface,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.floating),
-                    side: BorderSide(
-                      color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
-                      width: 1.2,
-                    ),
-                  ),
-                  child: SizedBox(
+            child: Material(
+              elevation: 5,
+              shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+              color: Theme.of(context).colorScheme.surface,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.floating),
+                side: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                  width: 1.2,
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  SizedBox(
                     height: 56,
                     child: TextField(
                       controller: _cityController,
@@ -345,20 +349,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                     ),
                   ),
-                ),
-                // Indicador de busca não-bloqueante sutil
-                if (provider.isLoading)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: const LinearProgressIndicator(
-                        minHeight: 3,
-                        backgroundColor: Colors.transparent,
-                      ),
+                  // Barra de loading conjugada na base do container de busca
+                  if (provider.isLoading)
+                    const LinearProgressIndicator(
+                      minHeight: 2.5,
+                      backgroundColor: Colors.transparent,
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -468,7 +466,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           // 5. BOTÃO FLUTUANTE MINHA LOCALIZAÇÃO NO CANTO INFERIOR DIREITO DO MAPA
           Positioned(
             right: _kMapFloatingPadding,
-            bottom: (MediaQuery.sizeOf(context).height * _sheetExtent) + 14,
+            bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) * _sheetExtent) + 12,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
               opacity: _sheetExtent > 0.78 ? 0.0 : 1.0,
@@ -631,9 +629,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 child: _buildQuickActionCard(
                   context: context,
                   isDark: isDark,
-                  icon: Icons.garage_outlined,
-                  iconColor: Theme.of(context).colorScheme.primary,
-                  bgColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+                  icon: Icons.directions_car_filled_rounded,
+                  iconColor: isDark
+                      ? const Color(0xFF60A5FA)
+                      : Theme.of(context).colorScheme.primary,
+                  bgColor: (isDark
+                          ? const Color(0xFF60A5FA)
+                          : Theme.of(context).colorScheme.primary)
+                      .withValues(alpha: 0.12),
                   title: 'Minha Garagem',
                   subtitle: 'Revisões & Km',
                   onTap: () => MainShellNavigation.switchToTab(2),
@@ -683,14 +686,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 isDark: isDark,
                 category: WorkshopCategory.autoCenter,
                 label: 'Auto Center',
-                icon: Icons.garage_rounded,
+                icon: Icons.car_repair_rounded,
               ),
               _buildCategoryPill(
                 context: context,
                 isDark: isDark,
                 category: WorkshopCategory.tireShop,
                 label: 'Pneus',
-                icon: Icons.radio_button_checked_rounded,
+                icon: Icons.tire_repair_rounded,
               ),
               _buildCategoryPill(
                 context: context,
@@ -849,23 +852,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         if (results.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
             child: Center(
               child: Column(
                 children: [
                   Icon(
-                    Icons.search_off_rounded,
-                    size: 48,
+                    Icons.store_mall_directory_outlined,
+                    size: 46,
                     color: isDark ? Colors.white38 : AppColors.slateMuted,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Nenhuma oficina encontrada nesta categoria ou região.',
+                  Text(
+                    provider.searchQuery.isNotEmpty
+                        ? 'Nenhuma oficina encontrada para "${provider.searchQuery}" nesta região.'
+                        : 'Nenhuma oficina encontrada nesta categoria ou região.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton.tonal(
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Essa oficina ainda não está mapeada no aplicativo?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: AppColors.slateMuted),
+                  ),
+                  const SizedBox(height: 16),
+                  if (provider.searchQuery.isNotEmpty) ...[
+                    FilledButton.icon(
+                      onPressed: () => _openWorkshopRegistration(
+                        prefilledName: provider.searchQuery,
+                      ),
+                      icon: const Icon(Icons.add_business_rounded, size: 18),
+                      label: Text('Cadastrar "${provider.searchQuery}"'),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  TextButton(
                     onPressed: _clearFilters,
                     child: const Text('Limpar filtros e ver todas'),
                   ),

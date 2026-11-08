@@ -43,7 +43,7 @@ enum WorkshopCategory {
       case WorkshopCategory.autoCenter:
         return Icons.garage_rounded;
       case WorkshopCategory.tireShop:
-        return Icons.radio_button_checked_rounded;
+        return Icons.tire_repair_rounded;
       case WorkshopCategory.oilChange:
         return Icons.opacity_rounded;
       case WorkshopCategory.detailing:
@@ -134,7 +134,7 @@ class Workshop {
       case WorkshopCategory.oilChange:
         return Icons.opacity_rounded;
       case WorkshopCategory.tireShop:
-        return Icons.radio_button_checked_rounded;
+        return Icons.tire_repair_rounded;
       case WorkshopCategory.autoCenter:
         return Icons.garage_rounded;
       case WorkshopCategory.detailing:

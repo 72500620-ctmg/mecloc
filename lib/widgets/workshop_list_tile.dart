@@ -79,15 +79,20 @@ class WorkshopListTile extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.emeraldDeep.withValues(alpha: 0.14),
+                            color: (isDark
+                                    ? const Color(0xFF34D399)
+                                    : AppColors.emeraldDeep)
+                                .withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
+                          child: Text(
                             'PARCEIRA',
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.emeraldDeep,
+                              color: isDark
+                                  ? const Color(0xFF34D399)
+                                  : AppColors.emeraldDeep,
                               letterSpacing: 0.3,
                             ),
                           ),
@@ -98,12 +103,18 @@ class WorkshopListTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      Text(
-                        workshop.category,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
+                      Flexible(
+                        child: Text(
+                          workshop.category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? const Color(0xFF93C5FD)
+                                : Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
                       if (workshop.distanceKm != null) ...[
@@ -142,9 +153,11 @@ class WorkshopListTile extends StatelessWidget {
                 if (workshop.isCustomRegistered)
                   IconButton(
                     tooltip: 'Cotar via WhatsApp',
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.chat_outlined,
-                      color: AppColors.emeraldDeep,
+                      color: isDark
+                          ? const Color(0xFF34D399)
+                          : AppColors.emeraldDeep,
                       size: 20,
                     ),
                     onPressed: () {

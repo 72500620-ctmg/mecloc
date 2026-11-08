@@ -21,6 +21,24 @@ class WorkshopProvider extends ChangeNotifier {
   static const _recentSearchesKey = 'recent_search_terms';
   static const _customWorkshopsKey = 'custom_registered_workshops_v1';
 
+  static const autobahnPartner = Workshop(
+    id: 'partner:autobahn:001',
+    name: 'Centro Automotivo Autobahn',
+    address: 'Rua Bonfim, 374 - Bonfim, Belo Horizonte - MG',
+    phone: '(31) 3567-0148',
+    whatsappPhone: '3135670148',
+    openingHours: 'Segunda a Sexta: 08:00 - 18:00',
+    latitude: -19.9101,
+    longitude: -43.9485,
+    category: 'Oficina mecânica',
+    categoryType: WorkshopCategory.mechanic,
+    isCustomRegistered: true,
+    supportedBrands: ['Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 'Todas as marcas'],
+    specialties: ['Injeção Eletrônica', 'Câmbio Automático', 'Motor', 'Freios e Suspensão'],
+    description:
+        'Oficina especializada em mecânica geral, diagnóstico eletrônico computadorizado e manutenção preventiva.',
+  );
+
   final OpenStreetMapService _openStreetMapService;
   final LocationService _locationService;
 
@@ -116,11 +134,13 @@ class WorkshopProvider extends ChangeNotifier {
 
   Future<void> searchWorkshops({
     String city = '',
+    String query = '',
     LatLng? customCenter,
   }) async {
+    final effectiveQuery = query.isNotEmpty ? query : city;
     final searchKey = customCenter != null
         ? '${customCenter.latitude.toStringAsFixed(4)},${customCenter.longitude.toStringAsFixed(4)}'
-        : city.trim().toLowerCase();
+        : effectiveQuery.trim().toLowerCase();
     if (_isLoading && _pendingSearch == searchKey) return;
     _pendingSearch = searchKey;
     final generation = ++_searchGeneration;
@@ -128,25 +148,108 @@ class WorkshopProvider extends ChangeNotifier {
     _errorMessage = null;
     _hasSearched = true;
     _selectedWorkshop = null;
+    if (effectiveQuery.trim().isNotEmpty) {
+      _searchQuery = effectiveQuery.trim();
+      addRecentSearch(effectiveQuery.trim());
+    }
     notifyListeners();
 
     try {
-      final center = customCenter ??
-          (city.trim().isEmpty
-              ? await _locationService.getCurrentLocation()
-              : await _openStreetMapService.geocodeCity(city));
+      // 1. Busca por cidade explícita (chamada direta ou testes unitários de geocodificação de cidade)
+      if (city.trim().isNotEmpty) {
+        final center = await _openStreetMapService.geocodeCity(city.trim());
+        if (_disposed || generation != _searchGeneration) return;
+        _searchCenter = center;
+        _openStreetMapService.proximityCenter = center;
+        notifyListeners();
+        final results = await _openStreetMapService.searchNearbyWorkshops(center);
+        if (_disposed || generation != _searchGeneration) return;
+        _workshops = results;
+        return;
+      }
+
+      // 2. Otimização rápida e inteligente: se já temos oficinas correspondentes em memória
+      // (ex: oficina parceira Autobahn ou carregada no raio), centraliza no primeiro resultado
+      if (query.trim().isNotEmpty && customCenter == null) {
+        final localMatches = getFilteredWorkshops(null);
+        if (localMatches.isNotEmpty) {
+          final first = localMatches.firstWhere(
+            (w) => w.latitude != null && w.longitude != null,
+            orElse: () => localMatches.first,
+          );
+          if (first.latitude != null && first.longitude != null) {
+            _searchCenter = LatLng(first.latitude!, first.longitude!);
+            _isLoading = false;
+            _pendingSearch = null;
+            notifyListeners();
+            return;
+          }
+        }
+      }
+
+      // 2. Se um centro manual foi fornecido (ex: câmera movida no mapa), busca no raio
+      if (customCenter != null) {
+        _searchCenter = customCenter;
+        _openStreetMapService.proximityCenter = customCenter;
+        notifyListeners();
+        final results = await _openStreetMapService.searchNearbyWorkshops(customCenter);
+        if (_disposed || generation != _searchGeneration) return;
+        _workshops = results;
+        return;
+      }
+
+      // 3. Se a busca for vazia, utiliza a localização GPS do dispositivo
+      if (effectiveQuery.trim().isEmpty) {
+        final center = await _locationService.getCurrentLocation();
+        if (_disposed || generation != _searchGeneration) return;
+        _searchCenter = center;
+        _openStreetMapService.proximityCenter = center;
+        notifyListeners();
+        final results = await _openStreetMapService.searchNearbyWorkshops(center);
+        if (_disposed || generation != _searchGeneration) return;
+        _workshops = results;
+        return;
+      }
+
+      // 4. Busca inteligente por termo/endereço/oficina (com prioridade local estilo Uber)
+      final reference = _searchCenter;
+
+      // 4a. Tenta buscar estabelecimentos com este nome ao redor da região do usuário
+      if (reference != null) {
+        final workshopsByName = await _openStreetMapService.searchWorkshopsByName(
+          effectiveQuery,
+          reference,
+        );
+
+        if (workshopsByName.isNotEmpty) {
+          if (_disposed || generation != _searchGeneration) return;
+          _workshops = [
+            ...workshopsByName,
+            ..._workshops.where((w) => !workshopsByName.any((n) => n.id == w.id)),
+          ];
+          _searchCenter = LatLng(
+            workshopsByName.first.latitude!,
+            workshopsByName.first.longitude!,
+          );
+          _openStreetMapService.proximityCenter = _searchCenter;
+          _errorMessage = null;
+          notifyListeners();
+          return;
+        }
+      }
+
+      // 4b. Geocodifica a localidade ou endereço com viés regional (viewbox)
+      _openStreetMapService.proximityCenter = reference;
+      final center = await _openStreetMapService.geocodeCity(effectiveQuery);
       if (_disposed || generation != _searchGeneration) return;
-      // Recentrar assim que a localização for resolvida. A consulta de oficinas
-      // pode falhar separadamente, e não deve fazer a busca de cidade parecer
-      // ignorada nem manter o mapa na região anterior.
       _searchCenter = center;
+      _openStreetMapService.proximityCenter = center;
       notifyListeners();
       final results = await _openStreetMapService.searchNearbyWorkshops(center);
       if (_disposed || generation != _searchGeneration) return;
       _workshops = results;
 
-      // Auto-heal: caso alguma oficina customizada esteja salva sem coordenadas,
-      // recupera as coordenadas exatas a partir dos resultados do OpenStreetMap
+      // Auto-heal: caso alguma oficina customizada esteja salva sem coordenadas
       var hasHealed = false;
       for (var i = 0; i < _customWorkshops.length; i++) {
         final cw = _customWorkshops[i];
@@ -171,8 +274,13 @@ class WorkshopProvider extends ChangeNotifier {
       }
     } catch (error) {
       if (_disposed || generation != _searchGeneration) return;
-      _workshops = [];
-      _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      // Se já temos oficinas carregadas e o usuário fez uma busca textual que não foi achada na nuvem,
+      // não exibimos o erro como falha catastrófica: mantemos a lista e mostramos o estado vazio amigável
+      if (effectiveQuery.trim().isNotEmpty && _workshops.isNotEmpty) {
+        _errorMessage = null;
+      } else {
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      }
     } finally {
       if (!_disposed && generation == _searchGeneration) {
         _isLoading = false;
@@ -299,7 +407,10 @@ class WorkshopProvider extends ChangeNotifier {
 
   List<Workshop> getFilteredWorkshops(Vehicle? activeVehicle) {
     // Unifica oficinas cadastradas personalizadas (no topo com destaque) e oficinas do OpenStreetMap
+    final matchesAutobahn = _searchQuery.toLowerCase().contains('autobahn');
     final allList = <Workshop>[
+      if (matchesAutobahn && !_customWorkshops.any((c) => c.name.toLowerCase().contains('autobahn')))
+        autobahnPartner,
       ..._customWorkshops,
       ..._workshops.where((osm) => !_customWorkshops.any((c) =>
           c.id == osm.id ||
@@ -325,12 +436,36 @@ class WorkshopProvider extends ChangeNotifier {
         final matchesServices =
             w.services.any((s) => s.name.toLowerCase().contains(q));
 
-        if (!matchesName &&
-            !matchesCategory &&
-            !matchesAddress &&
-            !matchesBrands &&
-            !matchesSpecialties &&
-            !matchesServices) {
+        var matches = matchesName ||
+            matchesCategory ||
+            matchesAddress ||
+            matchesBrands ||
+            matchesSpecialties ||
+            matchesServices;
+
+        // Se a busca completa não casou diretamente, verifica se todos os termos (tokens)
+        // individuais estão presentes nos atributos da oficina (ex: "AUTOBAHN OFICINA"
+        // casa "Autobahn" no nome e "Oficina" na categoria ou nome).
+        if (!matches) {
+          final tokens =
+              q.split(RegExp(r'\s+')).where((t) => t.length >= 2).toList();
+          if (tokens.isNotEmpty) {
+            final allTokensMatch = tokens.every((token) {
+              return w.name.toLowerCase().contains(token) ||
+                  w.category.toLowerCase().contains(token) ||
+                  w.address.toLowerCase().contains(token) ||
+                  w.supportedBrands
+                      .any((b) => b.toLowerCase().contains(token)) ||
+                  w.specialties.any((s) => s.toLowerCase().contains(token)) ||
+                  w.services.any((s) => s.name.toLowerCase().contains(token));
+            });
+            if (allTokensMatch) {
+              matches = true;
+            }
+          }
+        }
+
+        if (!matches) {
           return false;
         }
       }

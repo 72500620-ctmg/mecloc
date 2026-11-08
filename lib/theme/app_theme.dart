@@ -26,11 +26,11 @@ class AppColors {
   static const slateMuted = Color(0xFF64748B);
   static const slateInk = Color(0xFF0F172A);
 
-  // Neutros Escuros (OLED Midnight Slate)
-  static const darkCanvas = Color(0xFF090D16);
-  static const darkCard = Color(0xFF131A29);
-  static const darkSubtle = Color(0xFF1E293B);
-  static const darkBorder = Color(0xFF26334D);
+  // Neutros Escuros (OLED Midnight Zinc - estilo Apple / Uber Dark, conforto visual)
+  static const darkCanvas = Color(0xFF0F1013);
+  static const darkCard = Color(0xFF18191E);
+  static const darkSubtle = Color(0xFF23252D);
+  static const darkBorder = Color(0xFF2D303A);
 
   // Acentos Semânticos
   static const crimsonSos = Color(0xFFDC2626);
@@ -319,21 +319,21 @@ class AppTheme {
   }
 
   static ThemeData get dark {
-    const primary = AppColors.cobaltElectric;
+    const primary = AppColors.cobaltLuminous;
     final scheme = ColorScheme.fromSeed(
-      seedColor: primary,
+      seedColor: AppColors.cobaltElectric,
       brightness: Brightness.dark,
       primary: primary,
-      onPrimary: Colors.black,
+      onPrimary: const Color(0xFF0F172A),
       primaryContainer: const Color(0xFF1E3A8A),
-      onPrimaryContainer: Colors.white,
+      onPrimaryContainer: const Color(0xFFDBEAFE),
       secondary: const Color(0xFF94A3B8),
       onSecondary: Colors.black,
       surface: AppColors.darkCard,
       onSurface: const Color(0xFFF8FAFC),
       surfaceContainerHighest: AppColors.darkSubtle,
       outline: AppColors.darkBorder,
-      outlineVariant: const Color(0xFF334155),
+      outlineVariant: const Color(0xFF383C48),
       error: AppColors.coralRed,
       onError: Colors.white,
     );
@@ -374,7 +374,7 @@ class AppTheme {
           borderSide: const BorderSide(color: primary, width: 2.0),
         ),
         hintStyle: const TextStyle(
-          color: Color(0xFF64748B),
+          color: Color(0xFF8E95A5),
           fontSize: 14,
         ),
       ),
@@ -389,8 +389,8 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: Colors.black,
+          backgroundColor: const Color(0xFF2563EB),
+          foregroundColor: Colors.white,
           minimumSize: const Size(0, 50),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
@@ -442,12 +442,12 @@ class AppTheme {
         height: 66,
         backgroundColor: AppColors.darkCard,
         elevation: 0,
-        indicatorColor: const Color(0xFF1E3A8A),
+        indicatorColor: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: primary, size: 24);
           }
-          return const IconThemeData(color: Color(0xFF94A3B8), size: 24);
+          return const IconThemeData(color: Color(0xFF8E95A5), size: 24);
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -460,7 +460,7 @@ class AppTheme {
           return const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF94A3B8),
+            color: Color(0xFF8E95A5),
           );
         }),
       ),
