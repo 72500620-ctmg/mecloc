@@ -3,10 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../models/maintenance_item.dart';
 import '../models/vehicle.dart';
+import '../providers/auth_provider.dart';
 import '../providers/vehicle_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/whatsapp_quote_modal.dart';
+import 'auth/login_screen.dart';
+import 'auth/register_screen.dart';
+import 'main_shell.dart';
 
 class VehicleScreen extends StatefulWidget {
   const VehicleScreen({super.key});
@@ -17,11 +21,44 @@ class VehicleScreen extends StatefulWidget {
 
 class _VehicleScreenState extends State<VehicleScreen> {
   void _openAddVehicleSheet() {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const _AddVehicleSheet(),
+    );
+  }
+
+  void _showLoginRequiredDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Identifique-se'),
+        content: const Text(
+          'Para cadastrar veículos e salvar o histórico de manutenção na nuvem, acesse sua conta ou faça um cadastro rápido.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+              );
+            },
+            child: const Text('Entrar ou Cadastrar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -154,6 +191,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final authProvider = context.watch<AuthProvider>();
+    final isAuthenticated = authProvider.isAuthenticated;
     final vehicleProvider = context.watch<VehicleProvider>();
     final vehicles = vehicleProvider.vehicles;
 
@@ -173,9 +212,11 @@ class _VehicleScreenState extends State<VehicleScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-        children: [
+      body: !isAuthenticated
+          ? _buildGuestScreen(context, isDark)
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+              children: [
           // Banner informativo
           Container(
             padding: const EdgeInsets.all(16),
@@ -601,6 +642,242 @@ class _VehicleScreenState extends State<VehicleScreen> {
       ),
     );
   }
+
+  Widget _buildGuestScreen(BuildContext context, bool isDark) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+      children: [
+        // Hero Card
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [const Color(0xFF162E28), const Color(0xFF0F1E1A)]
+                  : [AppColors.forest, const Color(0xFF165348)],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.forest.withValues(alpha: 0.25),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.garage_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Garagem na Nuvem MecLoc',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Acompanhamento e manutenção inteligente',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Cadastre seus veículos para ter alertas de revisão preventiva, filtros automáticos de oficinas especializadas e orçamentos salvos na nuvem.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.5,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+
+        const Text(
+          'VANTAGENS DE CADASTRAR SEU VEÍCULO',
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: AppColors.muted,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        _buildBenefitCard(
+          isDark: isDark,
+          icon: Icons.notifications_active_rounded,
+          iconColor: const Color(0xFFE67E22),
+          title: 'Alertas de Revisão Preventiva',
+          subtitle:
+              'Acompanhe quando trocar óleo, filtros, pastilhas de freio e correia dentada antes de quebras inesperadas.',
+        ),
+        const SizedBox(height: 10),
+        _buildBenefitCard(
+          isDark: isDark,
+          icon: Icons.verified_rounded,
+          iconColor: AppColors.forest,
+          title: 'Oficinas 100% Compatíveis',
+          subtitle:
+              'Filtre oficinas que possuem maquinário, peças e mecânicos capacitados especificamente para a marca e motor do seu carro.',
+        ),
+        const SizedBox(height: 10),
+        _buildBenefitCard(
+          isDark: isDark,
+          icon: Icons.cloud_sync_rounded,
+          iconColor: const Color(0xFF2980B9),
+          title: 'Histórico Seguro e Sincronizado',
+          subtitle:
+              'Acesse sua garagem e histórico de manutenções em qualquer dispositivo com segurança Firebase.',
+        ),
+        const SizedBox(height: 24),
+
+        // Ações de Autenticação
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.forest,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+            );
+          },
+          icon: const Icon(Icons.login_rounded),
+          label: const Text(
+            'Entrar com minha conta',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            side: const BorderSide(color: AppColors.forest, width: 1.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const RegisterScreen()),
+            );
+          },
+          icon: const Icon(Icons.person_add_outlined, color: AppColors.forest),
+          label: const Text(
+            'Criar conta gratuita',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.forest,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: TextButton(
+            onPressed: () {
+              MainShellNavigation.switchToTab(0);
+            },
+            child: const Text(
+              'Continuar explorando oficinas no mapa',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBenefitCard({
+    required bool isDark,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? AppColors.darkLine : AppColors.line,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.muted,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SpecBadge extends StatelessWidget {
@@ -697,6 +974,21 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
 
   void _saveVehicle() {
     if (!_formKey.currentState!.validate()) return;
+
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Faça login ou crie sua conta para cadastrar veículos na nuvem.'),
+        ),
+      );
+      return;
+    }
 
     final km = int.tryParse(_mileageController.text.replaceAll(RegExp(r'\D'), '')) ?? 45000;
 

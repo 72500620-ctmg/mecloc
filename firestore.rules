@@ -27,6 +27,11 @@ service cloud.firestore {
 
       // Exclusão protegida
       allow delete: if false;
+
+      // Veículos da garagem do usuário (apenas o próprio usuário acessa e modifica seus veículos)
+      match /vehicles/{vehicleId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Coleção de Cotações / Orçamentos WhatsApp:
