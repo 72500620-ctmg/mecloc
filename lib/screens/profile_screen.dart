@@ -56,7 +56,7 @@ class ProfileScreen extends StatelessWidget {
     final currentUserId = authProvider.user?.uid;
     final myWorkshops = isAuthenticated && currentUserId != null
         ? workshopProvider.customWorkshops
-            .where((w) => w.ownerId == currentUserId || w.ownerId == null)
+            .where((w) => w.ownerId == currentUserId)
             .toList()
         : const <Workshop>[];
     final displayName = authProvider.displayName;

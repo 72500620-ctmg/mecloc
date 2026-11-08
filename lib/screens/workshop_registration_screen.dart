@@ -322,7 +322,7 @@ class _WorkshopRegistrationScreenState
     final currentUserId = auth.user?.uid;
     final myCustoms = isAuthenticated && currentUserId != null
         ? provider.customWorkshops
-            .where((w) => w.ownerId == currentUserId || w.ownerId == null)
+            .where((w) => w.ownerId == currentUserId)
             .toList()
         : const <Workshop>[];
 

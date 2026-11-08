@@ -61,7 +61,7 @@ class MyWorkshopsScreen extends StatelessWidget {
     }
 
     final myWorkshops = provider.customWorkshops
-        .where((w) => w.ownerId == null || w.ownerId == currentUserId)
+        .where((w) => w.ownerId == currentUserId)
         .toList();
 
     return Scaffold(
