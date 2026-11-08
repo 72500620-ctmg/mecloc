@@ -1,17 +1,18 @@
 # MecLoc
 
-Aplicativo Flutter inteligente para localização de oficinas e serviços automotivos em tempo real, cotação direta via WhatsApp, gestão de garagem e manutenções preventivas, integrado ao ecossistema OpenStreetMap e Firebase.
+Aplicativo Flutter para localização de oficinas automotivas via OpenStreetMap, cálculo de compatibilidade por modelo de veículo, solicitação de orçamentos via WhatsApp e controle de revisões preventivas com persistência no Firebase.
 
 ---
 
 ## 1. Identificação
 - **Aplicativo:** MecLoc
-- **Squad:** [Nome do Squad]
+- **Squad:** Mobizados
 - **Integrantes:**
-  - [Nome do Integrante 1] - Matrícula: [00000000] - Contato: [email@exemplo.com]
-  - [Nome do Integrante 2] - Matrícula: [00000000] - Contato: [email@exemplo.com]
-  - [Nome do Integrante 3] - Matrícula: [00000000] - Contato: [email@exemplo.com]
-  - [Nome do Integrante 4] - Matrícula: [00000000] - Contato: [email@exemplo.com]
+  - [MATHEUS GARCIA CORGOSINHO] - Matrícula: [72500298] - Contato: [72500298@aluno.faculdadecotemig.br]
+  - [LUIZ FELIPE LOURENCO SANTOS] - Matrícula: [72500620] - Contato: [72500620@aluno.faculdadecotemig.br]
+  - [HUGO BAPTISTA DE OLIVEIRA LOPES] - Matrícula: [72500239] - Contato: [72500239@aluno.faculdadecotemig.br]
+  - [PEDRO PAULO RODRIGUES VELOSO] - Matrícula: [72501111] - Contato: [72501111@aluno.faculdadecotemig.br]
+  - [RAFAEL DE OLIVEIRA CARVALHO MILAGRE VIANA] - Matrícula: [72500654] - Contato: [72500654@aluno.faculdadecotemig.br]
 
 ---
 
