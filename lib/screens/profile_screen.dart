@@ -45,9 +45,13 @@ class ProfileScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
-    final authProvider = context.watch<AuthProvider>();
+    final authProvider = Provider.of<AuthProvider?>(context);
     final activeVehicle = vehicleProvider.activeVehicle;
-    final isAuthenticated = authProvider.isAuthenticated;
+    final isAuthenticated = authProvider?.isAuthenticated ?? false;
+    final displayName = authProvider?.displayName ?? 'Visitante';
+    final email = authProvider?.email ?? '';
+    final photoUrl = authProvider?.photoUrl;
+    final isWorkshopOwner = authProvider?.isWorkshopOwner ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -75,10 +79,10 @@ class ProfileScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: AppColors.forest.withValues(alpha: 0.15),
-                  backgroundImage: authProvider.photoUrl != null
-                      ? NetworkImage(authProvider.photoUrl!)
+                  backgroundImage: photoUrl != null
+                      ? NetworkImage(photoUrl)
                       : null,
-                  child: authProvider.photoUrl == null
+                  child: photoUrl == null
                       ? Icon(
                           isAuthenticated ? Icons.person_rounded : Icons.person_outline_rounded,
                           size: 36,
@@ -92,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isAuthenticated ? authProvider.displayName : 'Visitante',
+                        isAuthenticated ? displayName : 'Visitante',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -102,7 +106,7 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         isAuthenticated
-                            ? (authProvider.email.isNotEmpty ? authProvider.email : 'Autenticado via Google')
+                            ? (email.isNotEmpty ? email : 'Autenticado via Google')
                             : 'Nenhuma conta conectada',
                         style: const TextStyle(fontSize: 13, color: AppColors.muted),
                       ),
@@ -119,7 +123,7 @@ class ProfileScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                authProvider.isWorkshopOwner ? 'Oficina Parceira' : 'Motorista',
+                                isWorkshopOwner ? 'Oficina Parceira' : 'Motorista',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -164,11 +168,12 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
+              side: BorderSide(
                 color: isDark ? AppColors.darkLine : AppColors.line,
               ),
             ),
@@ -239,11 +244,12 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
+              side: BorderSide(
                 color: isDark ? AppColors.darkLine : AppColors.line,
               ),
             ),
@@ -292,11 +298,12 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
+              side: BorderSide(
                 color: isDark ? AppColors.darkLine : AppColors.line,
               ),
             ),

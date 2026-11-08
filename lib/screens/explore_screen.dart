@@ -7,12 +7,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/workshop.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/vehicle_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_notice.dart';
 import '../widgets/emergency_modal.dart';
 import '../widgets/workshop_list_tile.dart';
+import 'auth/login_screen.dart';
+import 'profile_screen.dart';
 import 'quotes_screen.dart';
 import 'workshop_detail_screen.dart';
 import 'workshop_registration_screen.dart';
@@ -251,8 +254,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    suffixIcon: _cityController.text.isNotEmpty
-                        ? IconButton(
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_cityController.text.isNotEmpty)
+                          IconButton(
                             tooltip: 'Limpar',
                             icon: const Icon(Icons.clear_rounded, size: 20),
                             onPressed: () {
@@ -262,8 +268,54 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   .setSearchQuery('');
                               setState(() {});
                             },
-                          )
-                        : null,
+                          ),
+                        Consumer<AuthProvider?>(
+                          builder: (context, auth, _) {
+                            final isAuthenticated = auth?.isAuthenticated ?? false;
+                            final photoUrl = auth?.photoUrl;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () {
+                                  if (isAuthenticated) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const ProfileScreen(),
+                                      ),
+                                    );
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const LoginScreen(),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: CircleAvatar(
+                                  radius: 17,
+                                  backgroundColor: AppColors.forest.withValues(alpha: 0.12),
+                                  backgroundImage: photoUrl != null
+                                      ? NetworkImage(photoUrl)
+                                      : null,
+                                  child: photoUrl == null
+                                      ? Icon(
+                                          isAuthenticated
+                                              ? Icons.person_rounded
+                                              : Icons.person_outline_rounded,
+                                          size: 20,
+                                          color: AppColors.forest,
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,

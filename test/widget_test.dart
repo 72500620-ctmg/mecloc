@@ -71,9 +71,10 @@ void main() {
     await tester.tap(find.text('Favoritos'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Suas oficinas salvas'), findsOneWidget);
-    await tester.tap(find.text('Configurações'));
+    await tester.tap(find.text('Perfil'));
     await tester.pumpAndSettle();
-    expect(find.text('Aparência'), findsOneWidget);
+    expect(find.text('Aparência'), findsNothing);
+    expect(find.text('CONTA E ACESSO'), findsOneWidget);
     await tester.tap(find.text('Explorar'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).first, const Offset(0, -420));
@@ -118,7 +119,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byTooltip('Buscar cidade'), findsNothing);
-    expect(find.text('Configurações'), findsOneWidget);
+    expect(find.text('Perfil'), findsOneWidget);
     expect(workshopProvider.isLoading, isFalse);
     expect(workshopProvider.searchCenter, _CitySearchService.center);
     expect(workshopProvider.errorMessage, isNull);
@@ -154,7 +155,11 @@ void main() {
     ], child: const MecLocApp()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Configurações'));
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Tema do aplicativo'), 150);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tema do aplicativo'));
     await tester.pumpAndSettle();
     expect(find.text('Automático'), findsOneWidget);
     expect(find.text('Claro'), findsOneWidget);
