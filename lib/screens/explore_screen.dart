@@ -197,11 +197,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: isDark
-                    ? 'https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png'
-                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.mecloc',
                 maxZoom: 19,
+                tileBuilder: isDark ? darkModeTileBuilder : null,
               ),
               MarkerLayer(markers: [
                 if (_usingDeviceLocation && provider.searchCenter != null)
@@ -216,11 +215,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ]),
               RichAttributionWidget(attributions: [
                 TextSourceAttribution(
-                  isDark ? '© CARTO, © OpenStreetMap' : 'OpenStreetMap',
+                  'OpenStreetMap',
                   onTap: () => launchUrl(
-                    Uri.parse(isDark
-                        ? 'https://carto.com/attributions'
-                        : 'https://www.openstreetmap.org/copyright'),
+                    Uri.parse('https://www.openstreetmap.org/copyright'),
                   ),
                 ),
               ]),
