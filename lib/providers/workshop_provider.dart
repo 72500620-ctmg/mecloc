@@ -73,7 +73,19 @@ class WorkshopProvider extends ChangeNotifier {
   Workshop? get selectedWorkshop => _selectedWorkshop;
   bool get onlyCompatibleWithVehicle => _onlyCompatibleWithVehicle;
 
-  List<Workshop> get favoriteWorkshops => _savedWorkshops.values.toList();
+  List<Workshop> get favoriteWorkshops {
+    final list = <Workshop>[];
+    for (final id in _favoriteIds) {
+      final w = _savedWorkshops[id] ??
+          _customWorkshops.where((cw) => cw.id == id).firstOrNull ??
+          _workshops.where((osm) => osm.id == id).firstOrNull ??
+          (autobahnPartner.id == id ? autobahnPartner : null);
+      if (w != null) {
+        list.add(w);
+      }
+    }
+    return list;
+  }
   List<Workshop> get customWorkshops => List.unmodifiable(_customWorkshops);
 
   bool isFavorite(String id) => _favoriteIds.contains(id);
@@ -86,7 +98,12 @@ class WorkshopProvider extends ChangeNotifier {
         in preferences.getStringList(_favoriteDataKey) ?? <String>[]) {
       try {
         final data = jsonDecode(raw) as Map<String, dynamic>;
-        final workshop = Workshop.fromOverpassJson(data);
+        Workshop? workshop;
+        if (data.containsKey('tags')) {
+          workshop = Workshop.fromOverpassJson(data);
+        } else {
+          workshop = Workshop.fromJson(data);
+        }
         if (_favoriteIds.contains(workshop.id)) {
           _savedWorkshops[workshop.id] = workshop;
         }
@@ -100,6 +117,17 @@ class WorkshopProvider extends ChangeNotifier {
         final data = jsonDecode(raw) as Map<String, dynamic>;
         _customWorkshops.add(Workshop.fromJson(data));
       } catch (_) {/* Ignore an invalid entry. */}
+    }
+
+    // Garante que oficinas favoritas customizadas ou parceiras estejam disponíveis
+    for (final id in _favoriteIds) {
+      if (!_savedWorkshops.containsKey(id)) {
+        final match = _customWorkshops.where((w) => w.id == id).firstOrNull ??
+            (autobahnPartner.id == id ? autobahnPartner : null);
+        if (match != null) {
+          _savedWorkshops[id] = match;
+        }
+      }
     }
 
     // Tenta sincronizar com o Cloud Firestore da nuvem
@@ -373,39 +401,28 @@ class WorkshopProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleFavorite(String workshopId) async {
+  Future<void> toggleFavorite(String workshopId, [Workshop? workshop]) async {
     if (_favoriteIds.remove(workshopId)) {
       _savedWorkshops.remove(workshopId);
     } else {
-      final matches = _workshops.where((w) => w.id == workshopId);
-      if (matches.isEmpty) return;
+      final found = workshop ??
+          _savedWorkshops[workshopId] ??
+          _customWorkshops.where((w) => w.id == workshopId).firstOrNull ??
+          _workshops.where((w) => w.id == workshopId).firstOrNull ??
+          (_selectedWorkshop?.id == workshopId ? _selectedWorkshop : null) ??
+          (autobahnPartner.id == workshopId ? autobahnPartner : null);
+
+      if (found == null) return;
       _favoriteIds.add(workshopId);
-      _savedWorkshops[workshopId] = matches.first;
+      _savedWorkshops[workshopId] = found;
     }
     notifyListeners();
     final preferences = await SharedPreferences.getInstance();
     await preferences.setStringList(_favoritesKey, _favoriteIds.toList());
     await preferences.setStringList(
-        _favoriteDataKey,
-        _savedWorkshops.values.map((w) {
-          final parts = w.id.split(':');
-          return jsonEncode({
-            'type': parts.length > 1 ? parts[1] : 'node',
-            'id': parts.length > 2 ? int.tryParse(parts[2]) : null,
-            'lat': w.latitude,
-            'lon': w.longitude,
-            'tags': {
-              'name': w.name,
-              'addr:street': w.address,
-              if (w.phone != null) 'phone': w.phone,
-              if (w.openingHours != 'Horário não informado')
-                'opening_hours': w.openingHours,
-              if (w.categoryType == WorkshopCategory.tireShop) 'shop': 'tyres',
-              if (w.categoryType == WorkshopCategory.carWash)
-                'amenity': 'car_wash'
-            },
-          });
-        }).toList());
+      _favoriteDataKey,
+      _savedWorkshops.values.map((w) => jsonEncode(w.toJson())).toList(),
+    );
   }
 
   Future<void> registerCustomWorkshop(Workshop workshop) async {

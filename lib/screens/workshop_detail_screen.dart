@@ -57,7 +57,7 @@ class WorkshopDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: saved ? 'Remover dos favoritos' : 'Salvar nos favoritos',
-            onPressed: () => provider.toggleFavorite(w.id),
+            onPressed: () => provider.toggleFavorite(w.id, w),
             icon: Icon(saved ? Icons.favorite : Icons.favorite_border),
           ),
           if (isOwner)

@@ -127,7 +127,7 @@ class WorkshopCard extends StatelessWidget {
                       color: isFavorite ? AppColors.coralRed : AppColors.muted,
                       size: 22,
                     ),
-                    onPressed: () => provider.toggleFavorite(workshop.id),
+                    onPressed: () => provider.toggleFavorite(workshop.id, workshop),
                   ),
                 ],
               ),

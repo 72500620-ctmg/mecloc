@@ -202,6 +202,42 @@ void main() {
       expect(provider.searchCenter?.latitude, closeTo(-19.9101, 0.01));
       provider.dispose();
     });
+
+    test('favoriting custom registered and partner workshops works and persists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = WorkshopProvider();
+      await provider.initialize(searchOnStart: false);
+
+      const customWorkshop = Workshop(
+        id: 'cw_custom_fav',
+        name: 'Auto Elétrica do Zé',
+        address: 'Av. Brasil, 500',
+        phone: '3133334444',
+      );
+      await provider.registerCustomWorkshop(customWorkshop);
+
+      // Favorita oficina customizada
+      expect(provider.isFavorite(customWorkshop.id), isFalse);
+      await provider.toggleFavorite(customWorkshop.id, customWorkshop);
+      expect(provider.isFavorite(customWorkshop.id), isTrue);
+      expect(provider.favoriteWorkshops.any((w) => w.id == customWorkshop.id), isTrue);
+
+      // Favorita parceiro Autobahn
+      expect(provider.isFavorite(WorkshopProvider.autobahnPartner.id), isFalse);
+      await provider.toggleFavorite(WorkshopProvider.autobahnPartner.id);
+      expect(provider.isFavorite(WorkshopProvider.autobahnPartner.id), isTrue);
+      expect(provider.favoriteWorkshops.any((w) => w.id == WorkshopProvider.autobahnPartner.id), isTrue);
+
+      provider.dispose();
+
+      // Recarrega novo provider e garante que os favoritos foram restaurados
+      final restored = WorkshopProvider();
+      await restored.initialize(searchOnStart: false);
+      expect(restored.isFavorite(customWorkshop.id), isTrue);
+      expect(restored.isFavorite(WorkshopProvider.autobahnPartner.id), isTrue);
+      expect(restored.favoriteWorkshops.length, 2);
+      restored.dispose();
+    });
   });
 }
 

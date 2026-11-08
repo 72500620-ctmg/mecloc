@@ -172,7 +172,7 @@ class WorkshopListTile extends StatelessWidget {
                     color: isFavorite ? AppColors.crimsonSos : AppColors.slateMuted,
                     size: 20,
                   ),
-                  onPressed: () => provider.toggleFavorite(workshop.id),
+                  onPressed: () => provider.toggleFavorite(workshop.id, workshop),
                 ),
               ],
             ),
