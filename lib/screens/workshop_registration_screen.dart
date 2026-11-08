@@ -4,9 +4,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workshop.dart';
+import '../providers/auth_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/workshop_image_helper.dart';
+import 'auth/login_screen.dart';
 
 class WorkshopRegistrationScreen extends StatefulWidget {
   const WorkshopRegistrationScreen({
@@ -188,6 +190,21 @@ class _WorkshopRegistrationScreenState
   }
 
   Future<void> _submitWorkshop() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.coralRed,
+          content: Text('Você precisa estar logado para cadastrar ou gerenciar uma oficina.'),
+        ),
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final name = _nameController.text.trim();
@@ -252,6 +269,7 @@ class _WorkshopRegistrationScreenState
       ratingCount: existing?.ratingCount ?? 1,
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       description: _descriptionController.text.trim(),
+      ownerId: existing?.ownerId ?? auth.user?.uid,
     );
 
     final provider = context.read<WorkshopProvider>();

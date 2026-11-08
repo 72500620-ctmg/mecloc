@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workshop.dart';
+import '../providers/auth_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/workshop_image_helper.dart';
+import 'auth/login_screen.dart';
 import 'workshop_detail_screen.dart';
 import 'workshop_registration_screen.dart';
 
@@ -15,7 +17,52 @@ class MyWorkshopsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<WorkshopProvider>();
-    final myWorkshops = provider.customWorkshops;
+    final auth = Provider.of<AuthProvider?>(context);
+    final isAuthenticated = auth?.isAuthenticated ?? false;
+    final currentUserId = auth?.user?.uid;
+
+    if (!isAuthenticated) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Minhas Oficinas')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline_rounded, size: 54, color: AppColors.muted),
+                const SizedBox(height: 16),
+                const Text(
+                  'Acesso Restrito',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Faça login para cadastrar e gerenciar suas oficinas parceiras.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('Fazer Login'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final myWorkshops = provider.customWorkshops
+        .where((w) => w.ownerId == null || w.ownerId == currentUserId)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/workshop.dart';
+import '../providers/auth_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/whatsapp_quote_modal.dart';
@@ -30,8 +31,16 @@ class WorkshopDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<WorkshopProvider>();
+    final authProvider = Provider.of<AuthProvider?>(context);
     final saved = provider.isFavorite(workshop.id);
     final isRegistered = workshop.isCustomRegistered;
+
+    // Apenas o dono logado que registrou a oficina pode editá-la
+    final currentUserId = authProvider?.user?.uid;
+    final isOwner = isRegistered &&
+        currentUserId != null &&
+        workshop.ownerId != null &&
+        workshop.ownerId == currentUserId;
 
     return Scaffold(
       appBar: AppBar(
@@ -42,7 +51,7 @@ class WorkshopDetailScreen extends StatelessWidget {
             onPressed: () => provider.toggleFavorite(workshop.id),
             icon: Icon(saved ? Icons.favorite : Icons.favorite_border),
           ),
-          if (isRegistered)
+          if (isOwner)
             IconButton(
               tooltip: 'Personalizar / Editar Oficina',
               icon: const Icon(Icons.edit_outlined),
@@ -175,53 +184,54 @@ class WorkshopDetailScreen extends StatelessWidget {
 
           // SE FOR REGISTRADA: Exibe contato verificado e detalhes do proprietário
           if (isRegistered) ...[
-            Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.darkLine : AppColors.line,
+            if (isOwner)
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkLine : AppColors.line,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Você administra esta oficina',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                          Text(
+                            'Personalize fotos, horários e WhatsApp a qualquer momento.',
+                            style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => WorkshopRegistrationScreen(
+                              workshopToEdit: workshop,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.forest),
+                      label: const Text('Personalizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Perfil de Oficina Verificada',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                        ),
-                        Text(
-                          'Personalize fotos, horários e WhatsApp a qualquer momento.',
-                          style: TextStyle(color: AppColors.muted, fontSize: 11.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => WorkshopRegistrationScreen(
-                            workshopToEdit: workshop,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.forest),
-                    label: const Text('Personalizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
             if (workshop.phone?.trim().isNotEmpty == true)
               ListTile(
                 contentPadding: EdgeInsets.zero,
