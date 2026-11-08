@@ -54,17 +54,27 @@ class WorkshopCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: 48,
+                      height: 48,
                       color: workshop.categoryColor.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      workshop.iconData,
-                      color: workshop.categoryColor,
-                      size: 24,
+                      child: (workshop.imageUrl != null && workshop.imageUrl!.isNotEmpty)
+                          ? Image.network(
+                              workshop.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                workshop.iconData,
+                                color: workshop.categoryColor,
+                                size: 24,
+                              ),
+                            )
+                          : Icon(
+                              workshop.iconData,
+                              color: workshop.categoryColor,
+                              size: 24,
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),

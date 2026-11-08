@@ -40,12 +40,43 @@ class WorkshopDetailScreen extends StatelessWidget {
             tooltip: saved ? 'Remover dos favoritos' : 'Salvar nos favoritos',
             onPressed: () => provider.toggleFavorite(workshop.id),
             icon: Icon(saved ? Icons.favorite : Icons.favorite_border),
-          )
+          ),
+          if (isRegistered)
+            IconButton(
+              tooltip: 'Personalizar / Editar Oficina',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => WorkshopRegistrationScreen(
+                      workshopToEdit: workshop,
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
         children: [
+          // Banner de Fachada / Imagem da Oficina
+          if (workshop.imageUrl != null && workshop.imageUrl!.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                height: 190,
+                width: double.infinity,
+                child: Image.network(
+                  workshop.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Header com Nome e Badges de Categoria / Registro
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,6 +180,53 @@ class WorkshopDetailScreen extends StatelessWidget {
 
           // SE FOR REGISTRADA: Exibe contato verificado e detalhes do proprietário
           if (isRegistered) ...[
+            Container(
+              margin: const EdgeInsets.only(top: 8, bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? AppColors.darkLine : AppColors.line,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Perfil de Oficina Verificada',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                        Text(
+                          'Personalize fotos, horários e WhatsApp a qualquer momento.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => WorkshopRegistrationScreen(
+                            workshopToEdit: workshop,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.forest),
+                    label: const Text('Personalizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
             if (workshop.phone?.trim().isNotEmpty == true)
               ListTile(
                 contentPadding: EdgeInsets.zero,

@@ -10,10 +10,12 @@ class WorkshopRegistrationScreen extends StatefulWidget {
     super.key,
     this.initialName,
     this.initialAddress,
+    this.workshopToEdit,
   });
 
   final String? initialName;
   final String? initialAddress;
+  final Workshop? workshopToEdit;
 
   @override
   State<WorkshopRegistrationScreen> createState() =>
@@ -25,14 +27,13 @@ class _WorkshopRegistrationScreenState
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _nameController;
-  final _whatsappController = TextEditingController();
-  final _phoneController = TextEditingController();
+  late final TextEditingController _whatsappController;
+  late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
-  final _cityController = TextEditingController();
-  final _openingHoursController = TextEditingController(
-    text: 'Seg a Sex: 08:00 - 18:00 | Sáb: 08:00 - 12:00',
-  );
-  final _descriptionController = TextEditingController();
+  late final TextEditingController _cityController;
+  late final TextEditingController _openingHoursController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _imageUrlController;
 
   WorkshopCategory _selectedCategory = WorkshopCategory.mechanic;
   bool _hasEmergencyService = false;
@@ -40,15 +41,75 @@ class _WorkshopRegistrationScreenState
   final Set<String> _selectedBrands = {'Todas as marcas (Multimarcas)'};
   final Set<String> _selectedSpecialties = {'Mecânica Geral', 'Injeção Eletrônica'};
 
+  // Presets de imagem de alta qualidade para personalização rápida
+  static const _imagePresets = [
+    (
+      'Oficina Moderna',
+      'https://images.unsplash.com/photo-1613214149922-f1809c99b414?auto=format&fit=crop&w=800&q=80',
+    ),
+    (
+      'Auto Center & Elevador',
+      'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=800&q=80',
+    ),
+    (
+      'Lava Jato & Estética',
+      'https://images.unsplash.com/photo-1601362840469-51e4d8d58785?auto=format&fit=crop&w=800&q=80',
+    ),
+    (
+      'Pneus & Alinhamento',
+      'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?auto=format&fit=crop&w=800&q=80',
+    ),
+    (
+      'Ferramentas & Motor',
+      'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=800&q=80',
+    ),
+  ];
+
+  bool get _isEditing => widget.workshopToEdit != null;
+
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialName ?? '');
-    _addressController = TextEditingController(
-      text: (widget.initialAddress != null && widget.initialAddress != 'Endereço não informado')
-          ? widget.initialAddress!
-          : '',
+    final edit = widget.workshopToEdit;
+
+    _nameController = TextEditingController(
+      text: edit?.name ?? widget.initialName ?? '',
     );
+    _whatsappController = TextEditingController(
+      text: edit?.whatsappPhone ?? edit?.phone ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: edit?.phone ?? '',
+    );
+    _addressController = TextEditingController(
+      text: edit?.address ??
+          ((widget.initialAddress != null && widget.initialAddress != 'Endereço não informado')
+              ? widget.initialAddress!
+              : ''),
+    );
+    _cityController = TextEditingController();
+    _openingHoursController = TextEditingController(
+      text: edit?.openingHours ?? 'Seg a Sex: 08:00 - 18:00 | Sáb: 08:00 - 12:00',
+    );
+    _descriptionController = TextEditingController(
+      text: edit?.description ?? '',
+    );
+    _imageUrlController = TextEditingController(
+      text: edit?.imageUrl ?? '',
+    );
+
+    if (edit != null) {
+      _selectedCategory = edit.categoryType;
+      _selectedBrands.clear();
+      _selectedBrands.addAll(edit.supportedBrands);
+      if (_selectedBrands.isEmpty) {
+        _selectedBrands.add('Todas as marcas (Multimarcas)');
+      }
+
+      _selectedSpecialties.clear();
+      _selectedSpecialties.addAll(edit.specialties);
+      _hasEmergencyService = edit.specialties.contains('Socorro Móvel / Guincho');
+    }
   }
 
   static const _availableBrands = [
@@ -91,6 +152,7 @@ class _WorkshopRegistrationScreenState
     _cityController.dispose();
     _openingHoursController.dispose();
     _descriptionController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -103,6 +165,7 @@ class _WorkshopRegistrationScreenState
     final address = _addressController.text.trim();
     final city = _cityController.text.trim();
     final fullAddress = city.isNotEmpty ? '$address, $city' : address;
+    final imageUrl = _imageUrlController.text.trim();
 
     String catName;
     switch (_selectedCategory) {
@@ -137,10 +200,13 @@ class _WorkshopRegistrationScreenState
       specialtiesList.add('Socorro Móvel / Guincho');
     }
 
-    final newWorkshop = Workshop(
-      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+    final existing = widget.workshopToEdit;
+    final updatedWorkshop = Workshop(
+      id: existing?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
       address: fullAddress,
+      latitude: existing?.latitude,
+      longitude: existing?.longitude,
       phone: whatsapp.isNotEmpty ? whatsapp : (phone.isNotEmpty ? phone : null),
       whatsappPhone: whatsapp,
       category: catName,
@@ -151,23 +217,37 @@ class _WorkshopRegistrationScreenState
       isCustomRegistered: true,
       isVerified: true,
       isOpenNow: true,
-      rating: 5.0,
-      ratingCount: 1,
+      rating: existing?.rating ?? 5.0,
+      ratingCount: existing?.ratingCount ?? 1,
+      imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       description: _descriptionController.text.trim(),
     );
 
     final provider = context.read<WorkshopProvider>();
-    await provider.registerCustomWorkshop(newWorkshop);
+    await provider.registerCustomWorkshop(updatedWorkshop);
 
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Oficina "$name" cadastrada com sucesso! Ela agora aparece no topo das buscas.'),
-        duration: const Duration(seconds: 4),
         backgroundColor: const Color(0xFF107C41),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _isEditing
+                    ? 'Oficina "$name" atualizada com sucesso!'
+                    : 'Oficina "$name" cadastrada com sucesso!',
+              ),
+            ),
+          ],
+        ),
       ),
     );
-    Navigator.of(context).pop();
+
+    Navigator.pop(context);
   }
 
   @override
@@ -178,44 +258,59 @@ class _WorkshopRegistrationScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Área do Proprietário'),
+        title: Text(_isEditing ? 'Personalizar Oficina' : 'Cadastre sua Oficina'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
           children: [
-            // Banner de destaque
+            // Banner de Destaque
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [const Color(0xFF132822), const Color(0xFF0C1B17)]
-                      : [const Color(0xFF107C41), const Color(0xFF174D43)],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF107C41), Color(0xFF1B5E20)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.storefront_rounded, color: Colors.white, size: 36),
-                  SizedBox(width: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.storefront_rounded,
+                        color: Colors.white, size: 32),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Cadastre seu Estabelecimento',
-                          style: TextStyle(
+                          _isEditing
+                              ? 'Personalize seu Estabelecimento'
+                              : 'Receba Clientes no WhatsApp',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
                             fontSize: 16,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          'Apareça para motoristas da sua região e receba orçamentos pré-formatados no seu WhatsApp.',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          _isEditing
+                              ? 'Atualize fotos, serviços e horários para atrair mais motoristas.'
+                              : 'Adicione fotos, especialidades e seu número para contato direto.',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.5,
+                            height: 1.3,
+                          ),
                         ),
                       ],
                     ),
@@ -223,7 +318,7 @@ class _WorkshopRegistrationScreenState
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // Formulário
             Form(
@@ -231,17 +326,12 @@ class _WorkshopRegistrationScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Dados do Estabelecimento',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 12),
-
+                  // Nome da Oficina
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
-                      labelText: 'Nome da Oficina / Centro Automotivo *',
-                      hintText: 'Ex.: Mecânica Silva & Irmãos',
+                      labelText: 'Nome da Oficina / Estabelecimento *',
+                      prefixIcon: const Icon(Icons.business_rounded),
                       filled: true,
                       fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
@@ -253,14 +343,15 @@ class _WorkshopRegistrationScreenState
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
+                  // WhatsApp
                   TextFormField(
                     controller: _whatsappController,
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
-                      labelText: 'WhatsApp para Orçamentos *',
-                      hintText: 'Ex.: 11987654321',
+                      labelText: 'WhatsApp Comercial (com DDD) *',
+                      hintText: 'Ex.: (11) 98888-7777 ou 11988887777',
                       prefixIcon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366)),
                       filled: true,
                       fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
@@ -268,19 +359,23 @@ class _WorkshopRegistrationScreenState
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
-                        return 'Informe o WhatsApp para receber clientes';
+                        return 'Informe o WhatsApp para cotações';
+                      }
+                      final digits = val.replaceAll(RegExp(r'\D'), '');
+                      if (digits.length < 10) {
+                        return 'Informe um número com DDD válido (pelo menos 10 dígitos)';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
+                  // Endereço
                   TextFormField(
                     controller: _addressController,
                     decoration: InputDecoration(
                       labelText: 'Endereço Completo (Rua e Número) *',
-                      hintText: 'Ex.: Av. das Américas, 1250, Barra',
-                      prefixIcon: const Icon(Icons.location_on_outlined),
+                      prefixIcon: const Icon(Icons.place_rounded),
                       filled: true,
                       fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
@@ -292,19 +387,166 @@ class _WorkshopRegistrationScreenState
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
+                  // Cidade
                   TextFormField(
                     controller: _cityController,
                     decoration: InputDecoration(
                       labelText: 'Cidade e Estado',
-                      hintText: 'Ex.: Rio de Janeiro - RJ',
+                      hintText: 'Ex.: Belo Horizonte - MG',
                       filled: true,
                       fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // Personalização visual & Foto da Fachada
+                  const Text(
+                    'Foto de Fachada / Imagem da Oficina',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _imageUrlController,
+                    keyboardType: TextInputType.url,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'URL da Foto da Fachada (opcional)',
+                      hintText: 'https://exemplo.com/minha-oficina.jpg',
+                      prefixIcon: const Icon(Icons.photo_camera_rounded),
+                      suffixIcon: _imageUrlController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () {
+                                _imageUrlController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Preview da imagem se houver
+                  if (_imageUrlController.text.trim().isNotEmpty) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        height: 150,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white10 : Colors.grey.shade200,
+                        ),
+                        child: Image.network(
+                          _imageUrlController.text.trim(),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.broken_image_rounded, color: AppColors.muted),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Não foi possível carregar a prévia da imagem',
+                                  style: TextStyle(fontSize: 12, color: AppColors.muted),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Sugestões rápidas de fotos de fachada
+                  const Text(
+                    'Ou escolha uma foto de fachada profissional:',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 82,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _imagePresets.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (_, index) {
+                        final preset = _imagePresets[index];
+                        final isSelected = _imageUrlController.text == preset.$2;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            setState(() {
+                              _imageUrlController.text = preset.$2;
+                            });
+                          },
+                          child: Container(
+                            width: 110,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF107C41) : Colors.transparent,
+                                width: 2.2,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(preset.$2, fit: BoxFit.cover),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black.withValues(alpha: 0.75),
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 5,
+                                    left: 6,
+                                    right: 6,
+                                    child: Text(
+                                      preset.$1,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: CircleAvatar(
+                                        radius: 9,
+                                        backgroundColor: Color(0xFF107C41),
+                                        child: Icon(Icons.check, size: 12, color: Colors.white),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
                   // Categoria
                   const Text(
@@ -348,6 +590,10 @@ class _WorkshopRegistrationScreenState
                       DropdownMenuItem(
                         value: WorkshopCategory.carWash,
                         child: Text('Lava-jato / Estética'),
+                      ),
+                      DropdownMenuItem(
+                        value: WorkshopCategory.detailing,
+                        child: Text('Polimento & Detailing'),
                       ),
                     ],
                     onChanged: (val) {
@@ -466,9 +712,9 @@ class _WorkshopRegistrationScreenState
                     ),
                     onPressed: _submitWorkshop,
                     icon: const Icon(Icons.check_circle_rounded),
-                    label: const Text(
-                      'Cadastrar Oficina Gratuitamente',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                    label: Text(
+                      _isEditing ? 'Salvar Alterações' : 'Cadastrar Oficina Gratuitamente',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                     ),
                   ),
                 ],
@@ -477,7 +723,7 @@ class _WorkshopRegistrationScreenState
             const SizedBox(height: 32),
 
             // Lista de oficinas já cadastradas pelo usuário
-            if (myCustoms.isNotEmpty) ...[
+            if (myCustoms.isNotEmpty && !_isEditing) ...[
               const Divider(),
               const SizedBox(height: 16),
               Text(
@@ -492,24 +738,46 @@ class _WorkshopRegistrationScreenState
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFF107C41).withValues(alpha: 0.15),
-                      child: const Icon(Icons.verified_rounded, color: Color(0xFF107C41)),
+                      backgroundImage: w.imageUrl != null ? NetworkImage(w.imageUrl!) : null,
+                      child: w.imageUrl == null
+                          ? const Icon(Icons.verified_rounded, color: Color(0xFF107C41))
+                          : null,
                     ),
                     title: Text(w.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: Text(
                       '${w.category} • ${w.phone ?? "Sem WhatsApp"}',
                       style: const TextStyle(fontSize: 12),
                     ),
-                    trailing: IconButton(
-                      tooltip: 'Remover cadastro',
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.muted),
-                      onPressed: () async {
-                        await provider.removeCustomWorkshop(w.id);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Oficina removida do cadastro.')),
-                          );
-                        }
-                      },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Editar oficina',
+                          icon: const Icon(Icons.edit_outlined, color: AppColors.forest),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => WorkshopRegistrationScreen(
+                                  workshopToEdit: w,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          tooltip: 'Remover cadastro',
+                          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.muted),
+                          onPressed: () async {
+                            await provider.removeCustomWorkshop(w.id);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Oficina removida do cadastro.')),
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -521,4 +789,3 @@ class _WorkshopRegistrationScreenState
     );
   }
 }
-
