@@ -49,6 +49,8 @@ class _MainShellState extends State<MainShell> {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -62,14 +64,21 @@ class _MainShellState extends State<MainShell> {
           ),
           if (!keyboardOpen)
             Positioned(
-              left: 14,
-              right: 14,
-              bottom: bottomInset + 10,
+              left: 16,
+              right: 16,
+              bottom: bottomInset + 12,
               child: Material(
-                elevation: 7,
+                elevation: 6,
+                shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppRadii.floating),
                 clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.floating),
+                  side: BorderSide(
+                    color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                    width: 1.2,
+                  ),
+                ),
                 child: NavigationBar(
                   height: 66,
                   backgroundColor: Theme.of(context).colorScheme.surface,

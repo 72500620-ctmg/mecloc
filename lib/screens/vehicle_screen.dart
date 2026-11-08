@@ -223,8 +223,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isDark
-                    ? [const Color(0xFF162E28), const Color(0xFF10201C)]
-                    : [AppColors.forest, const Color(0xFF1C5F53)],
+                    ? [AppColors.darkCard, const Color(0xFF1E293B)]
+                    : [AppColors.cobaltPrimary, const Color(0xFF004494)],
               ),
               borderRadius: BorderRadius.circular(22),
             ),
@@ -657,13 +657,13 @@ class _VehicleScreenState extends State<VehicleScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isDark
-                  ? [const Color(0xFF162E28), const Color(0xFF0F1E1A)]
-                  : [AppColors.forest, const Color(0xFF165348)],
+                  ? [AppColors.darkCard, const Color(0xFF1E293B)]
+                  : [AppColors.cobaltPrimary, const Color(0xFF004494)],
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: AppColors.forest.withValues(alpha: 0.25),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.20),
                 blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
