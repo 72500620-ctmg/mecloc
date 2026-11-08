@@ -6,6 +6,7 @@ import '../models/workshop.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/whatsapp_quote_modal.dart';
+import '../widgets/workshop_image_helper.dart';
 import 'workshop_registration_screen.dart';
 
 class WorkshopDetailScreen extends StatelessWidget {
@@ -62,17 +63,11 @@ class WorkshopDetailScreen extends StatelessWidget {
         children: [
           // Banner de Fachada / Imagem da Oficina
           if (workshop.imageUrl != null && workshop.imageUrl!.isNotEmpty) ...[
-            ClipRRect(
+            WorkshopImageHelper.buildImage(
+              imageUrl: workshop.imageUrl,
+              width: double.infinity,
+              height: 190,
               borderRadius: BorderRadius.circular(20),
-              child: SizedBox(
-                height: 190,
-                width: double.infinity,
-                child: Image.network(
-                  workshop.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
             ),
             const SizedBox(height: 16),
           ],

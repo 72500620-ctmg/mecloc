@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workshop.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/workshop_image_helper.dart';
 
 class WorkshopRegistrationScreen extends StatefulWidget {
   const WorkshopRegistrationScreen({
@@ -41,7 +44,35 @@ class _WorkshopRegistrationScreenState
   final Set<String> _selectedBrands = {'Todas as marcas (Multimarcas)'};
   final Set<String> _selectedSpecialties = {'Mecânica Geral', 'Injeção Eletrônica'};
 
-  // Presets de imagem de alta qualidade para personalização rápida
+  final _picker = ImagePicker();
+  bool _isProcessingImage = false;
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 600,
+        imageQuality: 75,
+      );
+      if (picked != null) {
+        setState(() => _isProcessingImage = true);
+        final bytes = await picked.readAsBytes();
+        final base64String = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+        setState(() {
+          _imageUrlController.text = base64String;
+          _isProcessingImage = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isProcessingImage = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível carregar a imagem selecionada.')),
+        );
+      }
+    }
+  }
   static const _imagePresets = [
     (
       'Oficina Moderna',
@@ -408,61 +439,114 @@ class _WorkshopRegistrationScreenState
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _imageUrlController,
-                    keyboardType: TextInputType.url,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      labelText: 'URL da Foto da Fachada (opcional)',
-                      hintText: 'https://exemplo.com/minha-oficina.jpg',
-                      prefixIcon: const Icon(Icons.photo_camera_rounded),
-                      suffixIcon: _imageUrlController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 18),
-                              onPressed: () {
-                                _imageUrlController.clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
+
+                  // Botão de Selecionar Arquivo / Galeria ou Câmera
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: _isProcessingImage ? null : () => _pickImage(ImageSource.gallery),
+                          icon: _isProcessingImage
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.add_photo_alternate_rounded, color: AppColors.forest),
+                          label: const Text(
+                            'Escolher Foto do Arquivo',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.outlined(
+                        tooltip: 'Tirar Foto com a Câmera',
+                        style: IconButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          minimumSize: const Size(48, 48),
+                        ),
+                        onPressed: _isProcessingImage ? null : () => _pickImage(ImageSource.camera),
+                        icon: const Icon(Icons.photo_camera_rounded, color: AppColors.forest),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
 
-                  // Preview da imagem se houver
+                  // Preview da imagem selecionada
                   if (_imageUrlController.text.trim().isNotEmpty) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Container(
-                        height: 150,
+                        height: 160,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: isDark ? Colors.white10 : Colors.grey.shade200,
                         ),
-                        child: Image.network(
-                          _imageUrlController.text.trim(),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.broken_image_rounded, color: AppColors.muted),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Não foi possível carregar a prévia da imagem',
-                                  style: TextStyle(fontSize: 12, color: AppColors.muted),
-                                ),
-                              ],
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            WorkshopImageHelper.buildImage(
+                              imageUrl: _imageUrlController.text.trim(),
+                              width: double.infinity,
+                              height: 160,
+                              fit: BoxFit.cover,
                             ),
-                          ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: CircleAvatar(
+                                backgroundColor: Colors.black.withValues(alpha: 0.65),
+                                radius: 16,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
+                                  onPressed: () {
+                                    setState(() {
+                                      _imageUrlController.clear();
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
                   ],
+
+                  // Campo opcional de URL manual caso o usuário prefira link
+                  Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Ou inserir link / URL de imagem manualmente',
+                        style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                      ),
+                      children: [
+                        TextFormField(
+                          controller: _imageUrlController,
+                          keyboardType: TextInputType.url,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            labelText: 'URL da Imagem',
+                            hintText: 'https://exemplo.com/oficina.jpg',
+                            prefixIcon: const Icon(Icons.link_rounded),
+                            filled: true,
+                            fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
 
                   // Sugestões rápidas de fotos de fachada
                   const Text(

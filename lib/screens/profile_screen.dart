@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/vehicle_provider.dart';
+import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
+import 'my_workshops_screen.dart';
 import 'settings_screen.dart';
 import 'vehicle_screen.dart';
+import 'workshop_registration_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -45,8 +48,10 @@ class ProfileScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
+    final workshopProvider = context.watch<WorkshopProvider>();
     final authProvider = Provider.of<AuthProvider?>(context);
     final activeVehicle = vehicleProvider.activeVehicle;
+    final myWorkshops = workshopProvider.customWorkshops;
     final isAuthenticated = authProvider?.isAuthenticated ?? false;
     final displayName = authProvider?.displayName ?? 'Visitante';
     final email = authProvider?.email ?? '';
@@ -228,6 +233,66 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () => _showSignOutDialog(context),
                   ),
                 ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Seção Gestão de Negócios / Oficinas Cadastradas
+          const Text(
+            'GESTÃO DO ESTABELECIMENTO',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: AppColors.muted,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: isDark ? AppColors.darkLine : AppColors.line,
+              ),
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.storefront_rounded, color: AppColors.forest),
+                  title: const Text('Minhas Oficinas'),
+                  subtitle: Text(
+                    myWorkshops.isEmpty
+                        ? 'Nenhuma oficina cadastrada'
+                        : '${myWorkshops.length} oficina(s) cadastrada(s)',
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MyWorkshopsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.add_business_rounded, color: AppColors.forest),
+                  title: const Text('Cadastrar Nova Oficina'),
+                  subtitle: const Text('Ative atendimento via WhatsApp no MecLoc'),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const WorkshopRegistrationScreen(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
