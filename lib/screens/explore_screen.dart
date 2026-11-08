@@ -114,9 +114,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _openWorkshopRegistration() {
+    final searchCenter = context.read<WorkshopProvider>().searchCenter;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const WorkshopRegistrationScreen(),
+        builder: (_) => WorkshopRegistrationScreen(
+          initialLatitude: searchCenter?.latitude,
+          initialLongitude: searchCenter?.longitude,
+        ),
       ),
     );
   }

@@ -79,6 +79,34 @@ void main() {
       expect(filtered.first.id, 'custom_123');
       expect(filtered.first.isCustomRegistered, isTrue);
     });
+
+    test('claimed workshop retains coordinates and supersedes OSM workshop with same name on map', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = WorkshopProvider();
+      await provider.initialize(searchOnStart: false);
+
+      const claimedWorkshop = Workshop(
+        id: 'custom_claimed_1',
+        name: 'Oficina Central OSM',
+        address: 'Rua Principal, 100',
+        latitude: -23.5505,
+        longitude: -46.6333,
+        phone: '11988887777',
+        category: 'Oficina Mecânica',
+        isCustomRegistered: true,
+        isVerified: true,
+      );
+
+      await provider.registerCustomWorkshop(claimedWorkshop);
+
+      final filtered = provider.getFilteredWorkshops(null);
+      expect(filtered.length, 1);
+      final first = filtered.first;
+      expect(first.name, 'Oficina Central OSM');
+      expect(first.latitude, -23.5505);
+      expect(first.longitude, -46.6333);
+      expect(first.isCustomRegistered, isTrue);
+    });
   });
 
   group('Vehicle Mileage & Preventive Maintenance Calculations', () {
