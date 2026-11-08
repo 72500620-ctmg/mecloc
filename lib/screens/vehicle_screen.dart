@@ -627,17 +627,19 @@ class _VehicleScreenState extends State<VehicleScreen> {
               );
             }),
 
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+          if (vehicles.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: _openAddVehicleSheet,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Adicionar novo veículo'),
             ),
-            onPressed: _openAddVehicleSheet,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Adicionar novo veículo'),
-          ),
+          ],
         ],
       ),
     );

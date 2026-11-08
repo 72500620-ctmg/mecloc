@@ -47,6 +47,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   LatLng? _currentMapCenter;
   bool _showSearchThisArea = false;
   static const _distance = Distance();
+  double _sheetExtent = 0.5;
+  static const double _kMapFloatingPadding = 16.0;
 
   @override
   void dispose() {
@@ -220,9 +222,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ],
           ),
           Positioned(
-            top: MediaQuery.paddingOf(context).top + 10,
-            left: 14,
-            right: 14,
+            top: MediaQuery.paddingOf(context).top + 12,
+            left: _kMapFloatingPadding,
+            right: _kMapFloatingPadding,
             child: Material(
               elevation: 4,
               shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
@@ -338,7 +340,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
           if (_showSearchThisArea)
             Positioned(
-              top: MediaQuery.paddingOf(context).top + 76,
+              top: MediaQuery.paddingOf(context).top + 80,
               left: 0,
               right: 0,
               child: Center(
@@ -387,8 +389,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           // Botão flutuante SOS no mapa
           Positioned(
-            right: 14,
-            top: MediaQuery.paddingOf(context).top + 68,
+            right: _kMapFloatingPadding,
+            top: MediaQuery.paddingOf(context).top + 80,
             child: Material(
               elevation: 4,
               color: Colors.red.shade700,
@@ -420,7 +422,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
           Positioned.fill(
             top: MediaQuery.paddingOf(context).top + 76,
             bottom: 0,
-            child: DraggableScrollableSheet(
+            child: NotificationListener<DraggableScrollableNotification>(
+              onNotification: (notification) {
+                if ((_sheetExtent - notification.extent).abs() > 0.005) {
+                  setState(() => _sheetExtent = notification.extent);
+                }
+                return false;
+              },
+              child: DraggableScrollableSheet(
               initialChildSize: 0.5,
               minChildSize: 0.16,
               maxChildSize: 0.82,
@@ -482,26 +491,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                       ]),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: !provider.hasSearched ||
-                                provider.errorMessage != null
-                            ? FilledButton.icon(
-                                onPressed:
-                                    provider.isLoading ? null : _searchNearby,
-                                icon: const Icon(Icons.my_location, size: 18),
-                                label: const Text('Buscar perto de mim'),
-                              )
-                            : TextButton.icon(
-                                onPressed:
-                                    provider.isLoading ? null : _searchNearby,
-                                icon: const Icon(Icons.my_location, size: 18),
-                                label: const Text('Minha localização'),
-                              ),
-                      ),
                     ),
                     // BARRA DE AÇÕES RÁPIDAS: SOS, ORÇAMENTOS E CADASTRO
                     Padding(
@@ -625,6 +614,49 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       for (final workshop in results)
                         WorkshopListTile(workshop: workshop),
                   ],
+                ),
+              ),
+            ),
+            ),
+          ),
+          // Botão flutuante Minha Localização no canto inferior direito do mapa
+          Positioned(
+            right: _kMapFloatingPadding,
+            bottom: (MediaQuery.sizeOf(context).height * _sheetExtent) + 14,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 150),
+              opacity: _sheetExtent > 0.75 ? 0.0 : 1.0,
+              child: IgnorePointer(
+                ignoring: _sheetExtent > 0.75,
+                child: Material(
+                  elevation: 4,
+                  shadowColor:
+                      Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                  color: Theme.of(context).colorScheme.surface,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: Tooltip(
+                    message: 'Minha localização',
+                    child: InkWell(
+                      onTap: provider.isLoading ? null : _searchNearby,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark ? AppColors.darkLine : AppColors.line,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.my_location,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

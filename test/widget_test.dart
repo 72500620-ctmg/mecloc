@@ -69,7 +69,7 @@ void main() {
       ChangeNotifierProvider(create: (_) => AuthProvider()),
     ], child: const MecLocApp()));
     await tester.pumpAndSettle();
-    expect(find.text('Buscar perto de mim'), findsOneWidget);
+    expect(find.byTooltip('Minha localização'), findsOneWidget);
     await tester.tap(find.text('Favoritos'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Suas oficinas salvas'), findsOneWidget);
@@ -112,7 +112,7 @@ void main() {
     ], child: const MecLocApp()));
     await tester.pump();
 
-    await tester.tap(find.text('Buscar perto de mim'));
+    await tester.tap(find.byTooltip('Minha localização'));
     await tester.pump(const Duration(milliseconds: 50));
     expect(workshopProvider.isLoading, isTrue);
 
