@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'explore_screen.dart';
 import 'favorites_screen.dart';
-import 'settings_screen.dart';
+import 'profile_screen.dart';
 import 'vehicle_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -29,7 +29,7 @@ class _MainShellState extends State<MainShell> {
               ExploreScreen(),
               FavoritesScreen(),
               VehicleScreen(),
-              SettingsScreen(),
+              ProfileScreen(),
             ]),
           ),
           if (!keyboardOpen)
@@ -66,9 +66,9 @@ class _MainShellState extends State<MainShell> {
                       label: 'Veículos',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: 'Configurações',
+                      icon: Icon(Icons.person_outline_rounded),
+                      selectedIcon: Icon(Icons.person_rounded),
+                      label: 'Perfil',
                     ),
                   ],
                 ),

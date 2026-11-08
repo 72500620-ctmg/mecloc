@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/vehicle_provider.dart';
 import '../theme/app_theme.dart';
@@ -12,12 +13,45 @@ import 'vehicle_screen.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  void _showSignOutDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sair da conta'),
+        content: const Text('Tem certeza de que deseja encerrar a sua sessão?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.coralRed),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthProvider>().signOut();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Você saiu da sua conta.')),
+              );
+            },
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
+    final authProvider = Provider.of<AuthProvider?>(context);
     final activeVehicle = vehicleProvider.activeVehicle;
+    final isAuthenticated = authProvider?.isAuthenticated ?? false;
+    final displayName = authProvider?.displayName ?? 'Visitante';
+    final email = authProvider?.email ?? '';
+    final photoUrl = authProvider?.photoUrl;
+    final isWorkshopOwner = authProvider?.isWorkshopOwner ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -45,48 +79,76 @@ class ProfileScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: AppColors.forest.withValues(alpha: 0.15),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    size: 36,
-                    color: AppColors.forest,
-                  ),
+                  backgroundImage: photoUrl != null
+                      ? NetworkImage(photoUrl)
+                      : null,
+                  child: photoUrl == null
+                      ? Icon(
+                          isAuthenticated ? Icons.person_rounded : Icons.person_outline_rounded,
+                          size: 36,
+                          color: AppColors.forest,
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Motorista MecLoc',
-                        style: TextStyle(
+                      Text(
+                        isAuthenticated ? displayName : 'Visitante',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.3,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'motorista@exemplo.com',
-                        style: TextStyle(fontSize: 13, color: AppColors.muted),
+                      Text(
+                        isAuthenticated
+                            ? (email.isNotEmpty ? email : 'Autenticado via Google')
+                            : 'Nenhuma conta conectada',
+                        style: const TextStyle(fontSize: 13, color: AppColors.muted),
                       ),
                       const SizedBox(height: 6),
-                      if (activeVehicle != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.leaf.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            activeVehicle.shortName,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.forest,
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (isAuthenticated)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.forest.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isWorkshopOwner ? 'Oficina Parceira' : 'Motorista',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.forest,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          if (activeVehicle != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.leaf.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                activeVehicle.shortName,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.forest,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -106,44 +168,66 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: isDark ? AppColors.darkLine : AppColors.line),
+              side: BorderSide(
+                color: isDark ? AppColors.darkLine : AppColors.line,
+              ),
             ),
             child: Column(
               children: [
-                ListTile(
-                  leading:
-                      const Icon(Icons.login_rounded, color: AppColors.forest),
-                  title: const Text('Entrar com outra conta'),
-                  trailing:
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                          builder: (_) => const LoginScreen()),
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.person_add_alt_1_rounded,
-                      color: AppColors.forest),
-                  title: const Text('Criar novo cadastro'),
-                  trailing:
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                          builder: (_) => const RegisterScreen()),
-                    );
-                  },
-                ),
+                if (!isAuthenticated) ...[
+                  ListTile(
+                    leading: const Icon(Icons.login_rounded, color: AppColors.forest),
+                    title: const Text('Entrar com sua conta'),
+                    subtitle: const Text('Acesse seus orçamentos e garagens salvas'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.forest),
+                    title: const Text('Criar novo cadastro'),
+                    subtitle: const Text('Cadastre-se como motorista ou oficina'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(builder: (_) => const RegisterScreen()),
+                      );
+                    },
+                  ),
+                ] else ...[
+                  ListTile(
+                    leading: const Icon(Icons.switch_account_outlined, color: AppColors.forest),
+                    title: const Text('Trocar de conta'),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout_rounded, color: AppColors.coralRed),
+                    title: const Text(
+                      'Sair da conta',
+                      style: TextStyle(color: AppColors.coralRed, fontWeight: FontWeight.w600),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    onTap: () => _showSignOutDialog(context),
+                  ),
+                ],
               ],
             ),
           ),
@@ -160,46 +244,41 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: isDark ? AppColors.darkLine : AppColors.line),
+              side: BorderSide(
+                color: isDark ? AppColors.darkLine : AppColors.line,
+              ),
             ),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.palette_outlined,
-                      color: AppColors.forest),
+                  leading: const Icon(Icons.palette_outlined, color: AppColors.forest),
                   title: const Text('Tema do aplicativo'),
                   subtitle: Text(switch (themeProvider.themeMode) {
                     ThemeMode.system => 'Automático (sistema)',
                     ThemeMode.light => 'Claro',
                     ThemeMode.dark => 'Escuro',
                   }),
-                  trailing:
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(
-                        builder: (_) => const SettingsScreen()),
+                    MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
                   ),
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.directions_car_filled_rounded,
-                      color: AppColors.forest),
+                  leading: const Icon(Icons.directions_car_filled_rounded, color: AppColors.forest),
                   title: const Text('Gerenciar Veículos'),
-                  subtitle: Text(
-                      '${vehicleProvider.vehicles.length} veículos cadastrados'),
-                  trailing:
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  subtitle: Text('${vehicleProvider.vehicles.length} veículos cadastrados'),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute<void>(
-                          builder: (_) => const VehicleScreen()),
+                      MaterialPageRoute<void>(builder: (_) => const VehicleScreen()),
                     );
                   },
                 ),
@@ -219,29 +298,27 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+          Material(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: isDark ? AppColors.darkLine : AppColors.line),
+              side: BorderSide(
+                color: isDark ? AppColors.darkLine : AppColors.line,
+              ),
             ),
             child: const Column(
               children: [
                 ListTile(
-                  leading:
-                      Icon(Icons.info_outline_rounded, color: AppColors.forest),
+                  leading: Icon(Icons.info_outline_rounded, color: AppColors.forest),
                   title: Text('Sobre a Plataforma MecLoc'),
-                  subtitle:
-                      Text('Versão 2.0 • Mobilidade e Cuidados Automotivos'),
+                  subtitle: Text('Versão 2.1 • Firebase Auth, Firestore & OpenStreetMap'),
                 ),
                 Divider(height: 1),
                 ListTile(
-                  leading: Icon(Icons.verified_user_outlined,
-                      color: AppColors.forest),
+                  leading: Icon(Icons.verified_user_outlined, color: AppColors.forest),
                   title: Text('Privacidade e Termos de Uso'),
-                  subtitle:
-                      Text('Dados abertos do OpenStreetMap e dados locais'),
+                  subtitle: Text('Dados abertos do OpenStreetMap e dados locais protegidos'),
                 ),
               ],
             ),
