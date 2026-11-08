@@ -609,10 +609,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               .surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(AppRadii.card),
                           child: ListTile(
-                            leading: const Icon(Icons.request_quote_outlined),
-                            title: const Text('Orçamentos demonstrativos'),
+                            leading: const Icon(Icons.receipt_long_rounded, color: AppColors.forest),
+                            title: const Text('Meus Orçamentos & Cotações'),
                             subtitle: const Text(
-                                'Simulações locais, sem envio a oficinas.'),
+                                'Acompanhe suas solicitações e respostas via WhatsApp.'),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: _openQuotes,
                           ),

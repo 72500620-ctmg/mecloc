@@ -38,34 +38,7 @@ class VehicleProvider extends ChangeNotifier {
             .map((e) => Vehicle.fromLegacyString(e.value, isSelected: e.key == 0))
             .toList();
       } else {
-        // Inicializa com um veículo demonstrativo de exemplo para já demonstrar a compatibilidade
-        _vehicles = [
-          const Vehicle(
-            id: 'demo_1',
-            brand: 'Volkswagen',
-            model: 'Golf',
-            year: 2021,
-            engine: '1.4 TSI Turbo 150cv',
-            fuel: 'Flex',
-            transmission: 'Automático Tiptronic',
-            version: 'Highline',
-            plate: 'BRA2E19',
-            isSelected: true,
-          ),
-          const Vehicle(
-            id: 'demo_2',
-            brand: 'Honda',
-            model: 'Civic',
-            year: 2022,
-            engine: '2.0 i-VTEC 155cv',
-            fuel: 'Flex',
-            transmission: 'Automático CVT',
-            version: 'Touring',
-            plate: 'MEC2026',
-            isSelected: false,
-          ),
-        ];
-        await _save();
+        _vehicles = [];
       }
     }
 
