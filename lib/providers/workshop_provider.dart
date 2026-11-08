@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,11 +19,13 @@ class WorkshopProvider extends ChangeNotifier {
   static const _favoritesKey = 'favorite_workshop_ids';
   static const _favoriteDataKey = 'favorite_workshop_data';
   static const _recentSearchesKey = 'recent_search_terms';
+  static const _customWorkshopsKey = 'custom_registered_workshops_v1';
 
   final OpenStreetMapService _openStreetMapService;
   final LocationService _locationService;
 
   List<Workshop> _workshops = [];
+  List<Workshop> _customWorkshops = [];
   final Map<String, Workshop> _savedWorkshops = {};
   int _searchGeneration = 0;
   String? _pendingSearch;
@@ -53,6 +56,7 @@ class WorkshopProvider extends ChangeNotifier {
   bool get onlyCompatibleWithVehicle => _onlyCompatibleWithVehicle;
 
   List<Workshop> get favoriteWorkshops => _savedWorkshops.values.toList();
+  List<Workshop> get customWorkshops => List.unmodifiable(_customWorkshops);
 
   bool isFavorite(String id) => _favoriteIds.contains(id);
 
@@ -70,6 +74,40 @@ class WorkshopProvider extends ChangeNotifier {
         }
       } catch (_) {/* Ignore an invalid saved entry. */}
     }
+
+    final customRaw = preferences.getStringList(_customWorkshopsKey) ?? <String>[];
+    _customWorkshops = [];
+    for (final raw in customRaw) {
+      try {
+        final data = jsonDecode(raw) as Map<String, dynamic>;
+        _customWorkshops.add(Workshop.fromJson(data));
+      } catch (_) {/* Ignore an invalid entry. */}
+    }
+
+    // Tenta sincronizar com o Cloud Firestore da nuvem
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('workshops').get();
+      if (snapshot.docs.isNotEmpty) {
+        final cloudList = <Workshop>[];
+        for (final doc in snapshot.docs) {
+          try {
+            final data = doc.data();
+            data['id'] = doc.id;
+            cloudList.add(Workshop.fromJson(data));
+          } catch (_) {}
+        }
+        if (cloudList.isNotEmpty) {
+          _customWorkshops = cloudList;
+          final jsonList =
+              _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+          await preferences.setStringList(_customWorkshopsKey, jsonList);
+        }
+      }
+    } catch (e) {
+      debugPrint('Firestore fetch workshops fallback: $e');
+    }
+
     if (!_disposed) notifyListeners();
     if (searchOnStart && !_disposed && !_hasSearched) {
       await searchWorkshops();
@@ -199,8 +237,49 @@ class WorkshopProvider extends ChangeNotifier {
         }).toList());
   }
 
+  Future<void> registerCustomWorkshop(Workshop workshop) async {
+    _customWorkshops.removeWhere((w) => w.id == workshop.id);
+    _customWorkshops.insert(0, workshop);
+    final preferences = await SharedPreferences.getInstance();
+    final jsonList = _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+    await preferences.setStringList(_customWorkshopsKey, jsonList);
+    if (!_disposed) notifyListeners();
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('workshops')
+          .doc(workshop.id)
+          .set(workshop.toJson());
+    } catch (e) {
+      debugPrint('Firestore register workshop error: $e');
+    }
+  }
+
+  Future<void> removeCustomWorkshop(String workshopId) async {
+    _customWorkshops.removeWhere((w) => w.id == workshopId);
+    final preferences = await SharedPreferences.getInstance();
+    final jsonList = _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+    await preferences.setStringList(_customWorkshopsKey, jsonList);
+    if (!_disposed) notifyListeners();
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('workshops')
+          .doc(workshopId)
+          .delete();
+    } catch (e) {
+      debugPrint('Firestore delete workshop error: $e');
+    }
+  }
+
   List<Workshop> getFilteredWorkshops(Vehicle? activeVehicle) {
-    return _workshops.where((w) {
+    // Unifica oficinas cadastradas personalizadas (no topo com destaque) e oficinas do OpenStreetMap
+    final allList = <Workshop>[
+      ..._customWorkshops,
+      ..._workshops.where((osm) => !_customWorkshops.any((c) => c.name.toLowerCase() == osm.name.toLowerCase())),
+    ];
+
+    return allList.where((w) {
       // Filtro de categoria
       if (_selectedCategory != null && w.categoryType != _selectedCategory) {
         return false;

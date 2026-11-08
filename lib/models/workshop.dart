@@ -53,6 +53,9 @@ class Workshop {
     this.distanceKm,
     this.imageUrl,
     this.reviews = const [],
+    this.isCustomRegistered = false,
+    this.whatsappPhone,
+    this.description,
   });
 
   final String id;
@@ -76,6 +79,9 @@ class Workshop {
   final double? distanceKm;
   final String? imageUrl;
   final List<WorkshopReview> reviews;
+  final bool isCustomRegistered;
+  final String? whatsappPhone;
+  final String? description;
 
   IconData get iconData {
     switch (categoryType) {
@@ -238,6 +244,9 @@ class Workshop {
     double? distanceKm,
     String? imageUrl,
     List<WorkshopReview>? reviews,
+    bool? isCustomRegistered,
+    String? whatsappPhone,
+    String? description,
   }) {
     return Workshop(
       id: id ?? this.id,
@@ -261,6 +270,68 @@ class Workshop {
       distanceKm: distanceKm ?? this.distanceKm,
       imageUrl: imageUrl ?? this.imageUrl,
       reviews: reviews ?? this.reviews,
+      isCustomRegistered: isCustomRegistered ?? this.isCustomRegistered,
+      whatsappPhone: whatsappPhone ?? this.whatsappPhone,
+      description: description ?? this.description,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'address': address,
+        'latitude': latitude,
+        'longitude': longitude,
+        'rating': rating,
+        'ratingCount': ratingCount,
+        'phone': phone,
+        'openStreetMapUrl': openStreetMapUrl,
+        'category': category,
+        'categoryType': categoryType.name,
+        'supportedBrands': supportedBrands,
+        'specialties': specialties,
+        'isOpenNow': isOpenNow,
+        'openingHours': openingHours,
+        'isVerified': isVerified,
+        'priceLevel': priceLevel,
+        'distanceKm': distanceKm,
+        'imageUrl': imageUrl,
+        'isCustomRegistered': isCustomRegistered,
+        'whatsappPhone': whatsappPhone,
+        'description': description,
+      };
+
+  factory Workshop.fromJson(Map<String, dynamic> json) {
+    WorkshopCategory catType;
+    try {
+      catType = WorkshopCategory.values.byName(json['categoryType'] as String? ?? 'mechanic');
+    } catch (_) {
+      catType = WorkshopCategory.mechanic;
+    }
+
+    return Workshop(
+      id: json['id'] as String? ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      name: json['name'] as String? ?? 'Oficina',
+      address: json['address'] as String? ?? 'Endereço não informado',
+      latitude: _number(json['latitude']),
+      longitude: _number(json['longitude']),
+      rating: _number(json['rating']) ?? 5.0,
+      ratingCount: json['ratingCount'] as int? ?? 1,
+      phone: json['phone'] as String?,
+      openStreetMapUrl: json['openStreetMapUrl'] as String?,
+      category: json['category'] as String? ?? 'Oficina mecânica',
+      categoryType: catType,
+      supportedBrands: (json['supportedBrands'] as List<dynamic>?)?.cast<String>() ?? const ['Todas as marcas'],
+      specialties: (json['specialties'] as List<dynamic>?)?.cast<String>() ?? const [],
+      isOpenNow: json['isOpenNow'] as bool? ?? true,
+      openingHours: json['openingHours'] as String? ?? 'Segunda a Sexta, 08:00 - 18:00',
+      isVerified: json['isVerified'] as bool? ?? true,
+      priceLevel: json['priceLevel'] as String? ?? 'R\$ \$\$',
+      distanceKm: _number(json['distanceKm']),
+      imageUrl: json['imageUrl'] as String?,
+      isCustomRegistered: json['isCustomRegistered'] as bool? ?? true,
+      whatsappPhone: json['whatsappPhone'] as String?,
+      description: json['description'] as String?,
     );
   }
 

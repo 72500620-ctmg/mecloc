@@ -1,6 +1,8 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
 import 'providers/quotes_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/vehicle_provider.dart';
@@ -8,8 +10,16 @@ import 'providers/workshop_provider.dart';
 import 'screens/main_shell.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase init: $e');
+  }
+
   runApp(
     MultiProvider(
       providers: [

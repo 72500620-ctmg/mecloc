@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'maintenance_item.dart';
+
 class Vehicle {
   const Vehicle({
     required this.id,
@@ -10,6 +13,11 @@ class Vehicle {
     required this.version,
     this.plate = '',
     this.isSelected = false,
+    this.mileageKm = 48500,
+    this.lastOilChangeKm = 40000,
+    this.lastBrakesKm = 30000,
+    this.lastTimingBeltKm = 0,
+    this.lastFiltersKm = 40000,
   });
 
   final String id;
@@ -22,10 +30,56 @@ class Vehicle {
   final String version;
   final String plate;
   final bool isSelected;
+  final int mileageKm;
+  final int lastOilChangeKm;
+  final int lastBrakesKm;
+  final int lastTimingBeltKm;
+  final int lastFiltersKm;
 
   String get displayName => '$brand $model $version ($year)';
   String get shortName => '$brand $model';
   String get specsSummary => '$engine • $fuel • $transmission';
+
+  List<MaintenanceItem> getMaintenanceList() {
+    return [
+      MaintenanceItem(
+        id: 'oil_filter',
+        title: 'Troca de Óleo e Filtros',
+        description: 'Lubrificante do motor, filtro de óleo e anel do bujão',
+        intervalKm: 10000,
+        lastDoneKm: lastOilChangeKm,
+        recommendedService: 'Troca de Óleo e Filtros',
+        icon: Icons.opacity_rounded,
+      ),
+      MaintenanceItem(
+        id: 'brakes',
+        title: 'Pastilhas e Discos de Freio',
+        description: 'Verificação da espessura das pastilhas e fluido de freio',
+        intervalKm: 20000,
+        lastDoneKm: lastBrakesKm,
+        recommendedService: 'Pastilhas e Discos de Freio',
+        icon: Icons.disc_full_rounded,
+      ),
+      MaintenanceItem(
+        id: 'filters_air',
+        title: 'Filtro de Ar e Cabine',
+        description: 'Filtro de ar do motor e higienização do ar-condicionado',
+        intervalKm: 10000,
+        lastDoneKm: lastFiltersKm,
+        recommendedService: 'Ar Condicionado / Higienização',
+        icon: Icons.air_rounded,
+      ),
+      MaintenanceItem(
+        id: 'timing_belt',
+        title: 'Correia Dentada e Tensor',
+        description: 'Correia de sincronismo do motor e rolamentos tensores',
+        intervalKm: 50000,
+        lastDoneKm: lastTimingBeltKm,
+        recommendedService: 'Troca de Correia Dentada',
+        icon: Icons.settings_rounded,
+      ),
+    ];
+  }
 
   Vehicle copyWith({
     String? id,
@@ -38,6 +92,11 @@ class Vehicle {
     String? version,
     String? plate,
     bool? isSelected,
+    int? mileageKm,
+    int? lastOilChangeKm,
+    int? lastBrakesKm,
+    int? lastTimingBeltKm,
+    int? lastFiltersKm,
   }) {
     return Vehicle(
       id: id ?? this.id,
@@ -50,6 +109,11 @@ class Vehicle {
       version: version ?? this.version,
       plate: plate ?? this.plate,
       isSelected: isSelected ?? this.isSelected,
+      mileageKm: mileageKm ?? this.mileageKm,
+      lastOilChangeKm: lastOilChangeKm ?? this.lastOilChangeKm,
+      lastBrakesKm: lastBrakesKm ?? this.lastBrakesKm,
+      lastTimingBeltKm: lastTimingBeltKm ?? this.lastTimingBeltKm,
+      lastFiltersKm: lastFiltersKm ?? this.lastFiltersKm,
     );
   }
 
@@ -64,6 +128,11 @@ class Vehicle {
         'version': version,
         'plate': plate,
         'isSelected': isSelected,
+        'mileageKm': mileageKm,
+        'lastOilChangeKm': lastOilChangeKm,
+        'lastBrakesKm': lastBrakesKm,
+        'lastTimingBeltKm': lastTimingBeltKm,
+        'lastFiltersKm': lastFiltersKm,
       };
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
@@ -78,6 +147,11 @@ class Vehicle {
       version: json['version'] as String? ?? '',
       plate: json['plate'] as String? ?? '',
       isSelected: json['isSelected'] as bool? ?? false,
+      mileageKm: json['mileageKm'] as int? ?? 48500,
+      lastOilChangeKm: json['lastOilChangeKm'] as int? ?? 40000,
+      lastBrakesKm: json['lastBrakesKm'] as int? ?? 30000,
+      lastTimingBeltKm: json['lastTimingBeltKm'] as int? ?? 0,
+      lastFiltersKm: json['lastFiltersKm'] as int? ?? 40000,
     );
   }
 
@@ -107,6 +181,11 @@ class Vehicle {
       version: 'Comfortline',
       plate: plate,
       isSelected: isSelected,
+      mileageKm: 48500,
+      lastOilChangeKm: 40000,
+      lastBrakesKm: 30000,
+      lastTimingBeltKm: 0,
+      lastFiltersKm: 40000,
     );
   }
 }
@@ -115,4 +194,3 @@ class UniqueKey {
   @override
   String toString() => DateTime.now().microsecondsSinceEpoch.toString();
 }
-

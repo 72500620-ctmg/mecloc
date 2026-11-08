@@ -78,12 +78,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).first, const Offset(0, -420));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Orçamentos demonstrativos'));
+    await tester.ensureVisible(find.text('Orçamentos'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Orçamentos demonstrativos'));
+    await tester.tap(find.text('Orçamentos'));
     await tester.pumpAndSettle();
-    expect(find.text('Simulação local'), findsOneWidget);
-    expect(find.textContaining('Nenhum pedido é enviado'), findsOneWidget);
+    expect(find.text('Orçamentos & Cotações'), findsOneWidget);
+    expect(find.textContaining('Cotações Rápidas via WhatsApp'), findsOneWidget);
   });
   testWidgets('busca por cidade funciona enquanto o GPS está pendente',
       (tester) async {
