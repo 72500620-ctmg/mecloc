@@ -23,6 +23,8 @@ class EmergencyModal extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      enableDrag: true,
+      isDismissible: true,
       backgroundColor: Colors.transparent,
       builder: (_) => EmergencyModal(onSelectCategory: onSelectCategory),
     );
@@ -69,80 +71,116 @@ class EmergencyModal extends StatelessWidget {
     final provider = context.watch<WorkshopProvider>();
     final coords = provider.searchCenter;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.viewPaddingOf(context).bottom + 20,
-      ),
-      child: SingleChildScrollView(
+    return SafeArea(
+      top: false,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(context).bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
+            // Área de toque superior para arrastar e fechar (Drag Handle)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragEnd: (details) {
+                if ((details.primaryVelocity ?? 0) > 80) {
+                  Navigator.of(context).pop();
+                }
+              },
               child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
 
-            // Header SOS
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+            // Header SOS fixo com botão fechar (X)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 12, 10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
                   ),
-                  child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Auto Socorro & Emergência',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.red,
+                          ),
+                        ),
+                        Text(
+                          'Encontre socorro urgente para o seu veículo agora.',
+                          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 0.6),
+
+            // Conteúdo scrollável com fechamento por pull-down overscroll
+            Flexible(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is OverscrollNotification &&
+                      notification.overscroll < -18) {
+                    Navigator.of(context).pop();
+                    return true;
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Auto Socorro & Emergência',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.red,
+                      // Compartilhamento de Localização GPS
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF231C1B) : const Color(0xFFFFF4F2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.red.withValues(alpha: 0.25),
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Encontre socorro urgente para o seu veículo agora.',
-                        style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            // Compartilhamento de Localização GPS
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF231C1B) : const Color(0xFFFFF4F2),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.red.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
+                        child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -274,7 +312,12 @@ class EmergencyModal extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+],
+),
+),
+);
   }
 }
 

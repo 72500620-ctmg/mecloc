@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -39,6 +40,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // Constantes de layout do Design System
   static const double _kMapFloatingPadding = 16.0;
   double _sheetExtent = 0.45;
+  double _mapRotation = 0.0;
 
   // Busca automática inteligente ao mover o mapa
   Timer? _autoSearchDebounce;
@@ -70,17 +72,44 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
   }
 
-  Future<void> _searchCity() async {
+  Future<void> _performSearch() async {
     final query = _cityController.text.trim();
-    if (query.isNotEmpty) _usingDeviceLocation = false;
     if (query.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digite o nome da oficina, bairro ou serviço.')),
-      );
+      _searchNearby();
       return;
     }
+
+    _usingDeviceLocation = false;
     FocusManager.instance.primaryFocus?.unfocus();
-    await context.read<WorkshopProvider>().searchWorkshops(city: query);
+
+    final provider = context.read<WorkshopProvider>();
+    provider.setSearchQuery(query);
+
+    // 1. Se já existem oficinas correspondentes carregadas na memória,
+    // apenas centraliza na primeira correspondência no mapa e destaca.
+    // Isso evita refazer requisições desnecessárias, buscar cidades distantes
+    // ou substituir os resultados locais que o usuário já estava vendo ao digitar.
+    final localMatches = provider.getFilteredWorkshops(null);
+    if (localMatches.isNotEmpty) {
+      final firstWithCoords = localMatches.firstWhere(
+        (w) => w.latitude != null && w.longitude != null,
+        orElse: () => localMatches.first,
+      );
+      if (firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
+        final target = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
+        _mapController.move(target, 15.0);
+        provider.selectWorkshop(firstWithCoords);
+      }
+      return;
+    }
+
+    // 2. Se não encontrou nenhuma oficina correspondente na memória local,
+    // realiza a busca remota inteligente (por nome de oficina na região, ou cidade/bairro).
+    await provider.searchWorkshops(query: query);
+
+    if (mounted && provider.searchCenter != null) {
+      _mapController.move(provider.searchCenter!, 14.0);
+    }
   }
 
   Future<void> _searchNearby() async {
@@ -91,7 +120,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _retrySearch() =>
-      _cityController.text.trim().isEmpty ? _searchNearby() : _searchCity();
+      _cityController.text.trim().isEmpty ? _searchNearby() : _performSearch();
 
   void _openQuotes() {
     Navigator.of(context).push(
@@ -164,6 +193,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               point: LatLng(w.latitude!, w.longitude!),
               width: w.isCustomRegistered ? 56 : 50,
               height: w.isCustomRegistered ? 62 : 54,
+              rotate: true,
               child: WorkshopPinMarker(
                 workshop: w,
                 onTap: () => Navigator.push(
@@ -186,6 +216,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
               initialCenter: center,
               initialZoom: 13,
               onPositionChanged: (camera, hasGesture) {
+                if ((_mapRotation - camera.rotation).abs() > 0.5) {
+                  setState(() {
+                    _mapRotation = camera.rotation;
+                  });
+                }
                 if (hasGesture) {
                   _onMapCameraMoved(camera.center);
                 }
@@ -202,17 +237,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 maxZoom: 19,
                 tileBuilder: isDark ? darkModeTileBuilder : null,
               ),
-              MarkerLayer(markers: [
-                if (_usingDeviceLocation && provider.searchCenter != null)
-                  Marker(
-                    point: provider.searchCenter!,
-                    width: 44,
-                    height: 44,
-                    child: const Icon(Icons.my_location,
-                        color: AppColors.cobaltPrimary, size: 30),
-                  ),
-                ...markers,
-              ]),
+              MarkerLayer(
+                rotate: true,
+                markers: [
+                  if (_usingDeviceLocation && provider.searchCenter != null)
+                    Marker(
+                      point: provider.searchCenter!,
+                      width: 44,
+                      height: 44,
+                      rotate: true,
+                      child: const Icon(Icons.my_location,
+                          color: AppColors.cobaltPrimary, size: 30),
+                    ),
+                  ...markers,
+                ],
+              ),
               RichAttributionWidget(attributions: [
                 TextSourceAttribution(
                   'OpenStreetMap',
@@ -254,13 +293,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         setState(() {});
                         context.read<WorkshopProvider>().setSearchQuery(value);
                       },
-                      onSubmitted: (_) => _searchCity(),
+                      onSubmitted: (_) => _performSearch(),
                       decoration: InputDecoration(
                         filled: false,
                         hintText: 'Buscar oficina, bairro ou serviço...',
                         prefixIcon: IconButton(
                           tooltip: 'Buscar',
-                          onPressed: _searchCity,
+                          onPressed: _performSearch,
                           icon: Icon(
                             Icons.search_rounded,
                             color: Theme.of(context).colorScheme.primary,
@@ -459,6 +498,55 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ),
           ),
+
+          // 4b. BOTÃO FLUTUANTE BÚSSOLA (RESTAURA O NORTE QUANDO O MAPA É GIRADO)
+          if (_mapRotation.abs() > 2.0)
+            Positioned(
+              right: _kMapFloatingPadding,
+              bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) * _sheetExtent) + 68,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: _sheetExtent > 0.78 ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _sheetExtent > 0.78,
+                  child: Material(
+                    elevation: 4,
+                    shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                    color: Theme.of(context).colorScheme.surface,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: Tooltip(
+                      message: 'Redefinir para o Norte',
+                      child: InkWell(
+                        onTap: () {
+                          _mapController.rotate(0);
+                          setState(() => _mapRotation = 0.0);
+                        },
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Transform.rotate(
+                            angle: -_mapRotation * (math.pi / 180),
+                            child: Icon(
+                              Icons.explore_rounded,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // 5. BOTÃO FLUTUANTE MINHA LOCALIZAÇÃO NO CANTO INFERIOR DIREITO DO MAPA
           Positioned(
