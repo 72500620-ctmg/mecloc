@@ -14,6 +14,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_notice.dart';
 import '../widgets/emergency_modal.dart';
 import '../widgets/workshop_list_tile.dart';
+import '../widgets/workshop_pin_marker.dart';
 import 'auth/login_screen.dart';
 import 'profile_screen.dart';
 import 'quotes_screen.dart';
@@ -144,18 +145,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
         .where((w) => w.latitude != null && w.longitude != null)
         .map((w) => Marker(
               point: LatLng(w.latitude!, w.longitude!),
-              width: 48,
-              height: 48,
-              child: IconButton(
-                tooltip: 'Ver ${w.name}',
-                onPressed: () => Navigator.push(
+              width: w.isCustomRegistered ? 56 : 50,
+              height: w.isCustomRegistered ? 62 : 54,
+              child: WorkshopPinMarker(
+                workshop: w,
+                onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
                     builder: (_) => WorkshopDetailScreen(workshop: w),
                   ),
                 ),
-                icon: const Icon(Icons.location_on, size: 38),
-                color: AppColors.forest,
               ),
             ))
         .toList();

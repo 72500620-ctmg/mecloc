@@ -56,6 +56,7 @@ class Workshop {
     this.isCustomRegistered = false,
     this.whatsappPhone,
     this.description,
+    this.ownerId,
   });
 
   final String id;
@@ -82,6 +83,7 @@ class Workshop {
   final bool isCustomRegistered;
   final String? whatsappPhone;
   final String? description;
+  final String? ownerId;
 
   IconData get iconData {
     switch (categoryType) {
@@ -247,6 +249,7 @@ class Workshop {
     bool? isCustomRegistered,
     String? whatsappPhone,
     String? description,
+    String? ownerId,
   }) {
     return Workshop(
       id: id ?? this.id,
@@ -273,6 +276,7 @@ class Workshop {
       isCustomRegistered: isCustomRegistered ?? this.isCustomRegistered,
       whatsappPhone: whatsappPhone ?? this.whatsappPhone,
       description: description ?? this.description,
+      ownerId: ownerId ?? this.ownerId,
     );
   }
 
@@ -299,6 +303,7 @@ class Workshop {
         'isCustomRegistered': isCustomRegistered,
         'whatsappPhone': whatsappPhone,
         'description': description,
+        'ownerId': ownerId,
       };
 
   factory Workshop.fromJson(Map<String, dynamic> json) {
@@ -332,6 +337,7 @@ class Workshop {
       isCustomRegistered: json['isCustomRegistered'] as bool? ?? true,
       whatsappPhone: json['whatsappPhone'] as String?,
       description: json['description'] as String?,
+      ownerId: json['ownerId'] as String?,
     );
   }
 

@@ -6,6 +6,7 @@ import '../models/workshop.dart';
 import '../providers/workshop_provider.dart';
 import '../screens/workshop_detail_screen.dart';
 import '../theme/app_theme.dart';
+import 'workshop_image_helper.dart';
 
 class WorkshopCard extends StatelessWidget {
   const WorkshopCard({
@@ -54,17 +55,23 @@ class WorkshopCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: workshop.categoryColor.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      workshop.iconData,
-                      color: workshop.categoryColor,
-                      size: 24,
+                  WorkshopImageHelper.buildImage(
+                    imageUrl: workshop.imageUrl,
+                    width: 48,
+                    height: 48,
+                    borderRadius: BorderRadius.circular(14),
+                    placeholder: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: workshop.categoryColor.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        workshop.iconData,
+                        color: workshop.categoryColor,
+                        size: 24,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
