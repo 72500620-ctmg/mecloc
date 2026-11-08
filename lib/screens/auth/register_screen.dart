@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/liquid_glass.dart';
 import 'login_screen.dart';
@@ -20,7 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptTerms = false;
-  bool _isLoading = false;
+  String _selectedRole = 'driver'; // 'driver' ou 'workshop_owner'
 
   @override
   void dispose() {
@@ -31,37 +33,133 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() async {
-    if (!_acceptTerms) {
+  Future<void> _handleRegister() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, aceite os termos de uso para continuar.')),
+        const SnackBar(
+          content: Text('Por favor, preencha todos os campos obrigatórios.'),
+          backgroundColor: AppColors.coralRed,
+        ),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.forest,
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: AppColors.leaf),
-            SizedBox(width: 8),
-            Text('Conta criada com sucesso (demonstrativo)!'),
-          ],
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A senha deve ter no mínimo 6 caracteres.'),
+          backgroundColor: AppColors.coralRed,
         ),
-      ),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('As senhas não coincidem.'),
+          backgroundColor: AppColors.coralRed,
+        ),
+      );
+      return;
+    }
+
+    if (!_acceptTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, aceite os termos de uso para continuar.'),
+          backgroundColor: AppColors.coralRed,
+        ),
+      );
+      return;
+    }
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.signUpWithEmail(
+      name: name,
+      email: email,
+      password: password,
+      role: _selectedRole,
     );
-    Navigator.pop(context);
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.forest,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: AppColors.leaf),
+              const SizedBox(width: 8),
+              Text('Conta criada com sucesso! Seja bem-vindo, $name!'),
+            ],
+          ),
+        ),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.coralRed,
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  authProvider.errorMessage ?? 'Falha ao registrar conta.',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.signInWithGoogle(role: _selectedRole);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.forest,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: AppColors.leaf),
+              const SizedBox(width: 8),
+              Text('Cadastro com Google concluído! Olá, ${authProvider.displayName}!'),
+            ],
+          ),
+        ),
+      );
+      Navigator.pop(context);
+    } else {
+      if (authProvider.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.coralRed,
+            content: Text(authProvider.errorMessage!),
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final auth = context.watch<AuthProvider>();
+    final isLoading = auth.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -91,7 +189,67 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.muted, fontSize: 13.5),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+
+                // Seleção de Perfil (Motorista vs Oficina)
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkLine : AppColors.line,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          showCheckmark: false,
+                          avatar: Icon(
+                            Icons.directions_car_filled_rounded,
+                            size: 18,
+                            color: _selectedRole == 'driver' ? AppColors.forest : AppColors.muted,
+                          ),
+                          label: const Center(
+                            child: Text(
+                              'Motorista',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          selected: _selectedRole == 'driver',
+                          selectedColor: AppColors.leaf.withValues(alpha: 0.25),
+                          onSelected: (val) {
+                            if (val) setState(() => _selectedRole = 'driver');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: ChoiceChip(
+                          showCheckmark: false,
+                          avatar: Icon(
+                            Icons.storefront_rounded,
+                            size: 18,
+                            color: _selectedRole == 'workshop_owner' ? AppColors.forest : AppColors.muted,
+                          ),
+                          label: const Center(
+                            child: Text(
+                              'Dono de Oficina',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          selected: _selectedRole == 'workshop_owner',
+                          selectedColor: AppColors.leaf.withValues(alpha: 0.25),
+                          onSelected: (val) {
+                            if (val) setState(() => _selectedRole = 'workshop_owner');
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 LiquidGlassContainer(
                   padding: const EdgeInsets.all(20),
@@ -119,7 +277,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Senha',
+                          labelText: 'Senha (mínimo 6 dígitos)',
                           prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -178,8 +336,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: _isLoading ? null : _handleRegister,
-                          child: _isLoading
+                          onPressed: isLoading ? null : _handleRegister,
+                          child: isLoading
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
@@ -191,7 +349,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
+
+                // Botão de Cadastro com Google
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: isLoading ? null : _handleGoogleSignIn,
+                    icon: const Icon(Icons.g_mobiledata_rounded, size: 30, color: AppColors.forest),
+                    label: const Text(
+                      'Cadastrar com o Google',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -227,4 +403,3 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-

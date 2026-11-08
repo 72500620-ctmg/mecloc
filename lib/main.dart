@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'providers/auth_provider.dart';
 import 'providers/quotes_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/vehicle_provider.dart';
@@ -23,6 +24,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => VehicleProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => QuotesProvider()..initialize()),
