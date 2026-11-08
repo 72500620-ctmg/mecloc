@@ -144,6 +144,31 @@ class WorkshopProvider extends ChangeNotifier {
       final results = await _openStreetMapService.searchNearbyWorkshops(center);
       if (_disposed || generation != _searchGeneration) return;
       _workshops = results;
+
+      // Auto-heal: caso alguma oficina customizada esteja salva sem coordenadas,
+      // recupera as coordenadas exatas a partir dos resultados do OpenStreetMap
+      var hasHealed = false;
+      for (var i = 0; i < _customWorkshops.length; i++) {
+        final cw = _customWorkshops[i];
+        if (cw.latitude == null || cw.longitude == null) {
+          final match = results.where((osm) =>
+              osm.latitude != null &&
+              osm.longitude != null &&
+              osm.name.toLowerCase().trim() == cw.name.toLowerCase().trim()).firstOrNull;
+          if (match != null) {
+            _customWorkshops[i] = cw.copyWith(
+              latitude: match.latitude,
+              longitude: match.longitude,
+            );
+            hasHealed = true;
+          }
+        }
+      }
+      if (hasHealed) {
+        final preferences = await SharedPreferences.getInstance();
+        final jsonList = _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+        await preferences.setStringList(_customWorkshopsKey, jsonList);
+      }
     } catch (error) {
       if (_disposed || generation != _searchGeneration) return;
       _workshops = [];
@@ -276,7 +301,9 @@ class WorkshopProvider extends ChangeNotifier {
     // Unifica oficinas cadastradas personalizadas (no topo com destaque) e oficinas do OpenStreetMap
     final allList = <Workshop>[
       ..._customWorkshops,
-      ..._workshops.where((osm) => !_customWorkshops.any((c) => c.name.toLowerCase() == osm.name.toLowerCase())),
+      ..._workshops.where((osm) => !_customWorkshops.any((c) =>
+          c.id == osm.id ||
+          c.name.toLowerCase().trim() == osm.name.toLowerCase().trim())),
     ];
 
     return allList.where((w) {

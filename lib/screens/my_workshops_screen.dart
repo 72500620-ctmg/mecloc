@@ -17,9 +17,9 @@ class MyWorkshopsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<WorkshopProvider>();
-    final auth = Provider.of<AuthProvider?>(context);
-    final isAuthenticated = auth?.isAuthenticated ?? false;
-    final currentUserId = auth?.user?.uid;
+    final auth = context.watch<AuthProvider>();
+    final isAuthenticated = auth.isAuthenticated;
+    final currentUserId = auth.user?.uid;
 
     if (!isAuthenticated) {
       return Scaffold(
@@ -61,7 +61,7 @@ class MyWorkshopsScreen extends StatelessWidget {
     }
 
     final myWorkshops = provider.customWorkshops
-        .where((w) => w.ownerId == null || w.ownerId == currentUserId)
+        .where((w) => w.ownerId == currentUserId)
         .toList();
 
     return Scaffold(

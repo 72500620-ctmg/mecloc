@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/workshop.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/vehicle_provider.dart';
@@ -49,14 +50,19 @@ class ProfileScreen extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
     final workshopProvider = context.watch<WorkshopProvider>();
-    final authProvider = Provider.of<AuthProvider?>(context);
+    final authProvider = context.watch<AuthProvider>();
     final activeVehicle = vehicleProvider.activeVehicle;
-    final myWorkshops = workshopProvider.customWorkshops;
-    final isAuthenticated = authProvider?.isAuthenticated ?? false;
-    final displayName = authProvider?.displayName ?? 'Visitante';
-    final email = authProvider?.email ?? '';
-    final photoUrl = authProvider?.photoUrl;
-    final isWorkshopOwner = authProvider?.isWorkshopOwner ?? false;
+    final isAuthenticated = authProvider.isAuthenticated;
+    final currentUserId = authProvider.user?.uid;
+    final myWorkshops = isAuthenticated && currentUserId != null
+        ? workshopProvider.customWorkshops
+            .where((w) => w.ownerId == currentUserId)
+            .toList()
+        : const <Workshop>[];
+    final displayName = authProvider.displayName;
+    final email = authProvider.email;
+    final photoUrl = authProvider.photoUrl;
+    final isWorkshopOwner = authProvider.isWorkshopOwner;
 
     return Scaffold(
       appBar: AppBar(
@@ -264,9 +270,11 @@ class ProfileScreen extends StatelessWidget {
                   leading: const Icon(Icons.storefront_rounded, color: AppColors.forest),
                   title: const Text('Minhas Oficinas'),
                   subtitle: Text(
-                    myWorkshops.isEmpty
-                        ? 'Nenhuma oficina cadastrada'
-                        : '${myWorkshops.length} oficina(s) cadastrada(s)',
+                    !isAuthenticated
+                        ? 'Faça login para ver suas oficinas'
+                        : myWorkshops.isEmpty
+                            ? 'Nenhuma oficina cadastrada'
+                            : '${myWorkshops.length} oficina(s) cadastrada(s)',
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
@@ -285,6 +293,15 @@ class ProfileScreen extends StatelessWidget {
                   subtitle: const Text('Ative atendimento via WhatsApp no MecLoc'),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
+                    if (!isAuthenticated) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                      );
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute<void>(

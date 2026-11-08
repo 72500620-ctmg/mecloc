@@ -72,9 +72,33 @@ class AuthProvider extends ChangeNotifier {
       final doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists) {
         _userProfile = doc.data();
+      } else if (_user != null) {
+        // Se o documento não existe no Firestore ainda, sincroniza
+        final profileData = <String, dynamic>{
+          'name': _user!.displayName ?? 'Usuário MecLoc',
+          'email': _user!.email ?? '',
+          'role': 'driver',
+          'photoUrl': _user!.photoURL,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        try {
+          await _firestore.collection('users').doc(uid).set(profileData);
+          _userProfile = profileData;
+        } catch (_) {
+          _userProfile = profileData;
+        }
       }
     } catch (e) {
       debugPrint('Erro ao buscar perfil do usuário: $e');
+      if (_user != null && _userProfile == null) {
+        _userProfile = {
+          'name': _user!.displayName ?? 'Usuário MecLoc',
+          'email': _user!.email ?? '',
+          'role': 'driver',
+          'photoUrl': _user!.photoURL,
+        };
+      }
     }
   }
 
@@ -119,7 +143,12 @@ class AuthProvider extends ChangeNotifier {
       _user = credential.user;
 
       if (_user != null) {
-        await _user!.updateDisplayName(name.trim());
+        try {
+          await _user!.updateDisplayName(name.trim());
+        } catch (e) {
+          debugPrint('Aviso ao atualizar displayName: $e');
+        }
+
         final profileData = <String, dynamic>{
           'name': name.trim(),
           'email': email.trim(),
@@ -127,8 +156,18 @@ class AuthProvider extends ChangeNotifier {
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         };
-        await _firestore.collection('users').doc(_user!.uid).set(profileData);
-        _userProfile = profileData;
+
+        try {
+          await _firestore.collection('users').doc(_user!.uid).set(profileData);
+          _userProfile = profileData;
+        } catch (e) {
+          debugPrint('Aviso ao salvar perfil no Firestore: $e');
+          _userProfile = {
+            'name': name.trim(),
+            'email': email.trim(),
+            'role': role,
+          };
+        }
       }
 
       _setLoading(false);
@@ -153,7 +192,16 @@ class AuthProvider extends ChangeNotifier {
         final googleProvider = GoogleAuthProvider();
         googleProvider.addScope('email');
         googleProvider.addScope('profile');
-        credential = await _auth.signInWithPopup(googleProvider);
+        try {
+          credential = await _auth.signInWithPopup(googleProvider);
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'popup-blocked' || e.code == 'network-request-failed') {
+            await _auth.signInWithRedirect(googleProvider);
+            _setLoading(false);
+            return true;
+          }
+          rethrow;
+        }
       } else {
         final googleProvider = GoogleAuthProvider();
         credential = await _auth.signInWithProvider(googleProvider);
@@ -162,20 +210,30 @@ class AuthProvider extends ChangeNotifier {
       _user = credential.user;
       if (_user != null) {
         final userDocRef = _firestore.collection('users').doc(_user!.uid);
-        final doc = await userDocRef.get();
-        if (!doc.exists) {
-          final profileData = <String, dynamic>{
+        try {
+          final doc = await userDocRef.get();
+          if (!doc.exists) {
+            final profileData = <String, dynamic>{
+              'name': _user!.displayName ?? 'Usuário MecLoc',
+              'email': _user!.email ?? '',
+              'role': role,
+              'photoUrl': _user!.photoURL,
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            };
+            await userDocRef.set(profileData);
+            _userProfile = profileData;
+          } else {
+            _userProfile = doc.data();
+          }
+        } catch (e) {
+          debugPrint('Aviso ao sincronizar perfil do Google no Firestore: $e');
+          _userProfile = {
             'name': _user!.displayName ?? 'Usuário MecLoc',
             'email': _user!.email ?? '',
             'role': role,
             'photoUrl': _user!.photoURL,
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
           };
-          await userDocRef.set(profileData);
-          _userProfile = profileData;
-        } else {
-          _userProfile = doc.data();
         }
       }
 
@@ -239,7 +297,7 @@ class AuthProvider extends ChangeNotifier {
       case 'invalid-credential':
         return 'E-mail ou senha incorretos.';
       case 'email-already-in-use':
-        return 'Este e-mail já está em uso por outra conta.';
+        return 'Este e-mail já está em uso. Se você já possui cadastro, faça login com sua senha.';
       case 'invalid-email':
         return 'Formato de e-mail inválido.';
       case 'weak-password':
@@ -248,6 +306,10 @@ class AuthProvider extends ChangeNotifier {
         return 'Esta conta foi desativada temporariamente.';
       case 'too-many-requests':
         return 'Muitas tentativas sem sucesso. Aguarde alguns instantes.';
+      case 'network-request-failed':
+        return 'Falha de comunicação na rede. Verifique sua conexão com a internet.';
+      case 'popup-blocked':
+        return 'A janela do Google foi bloqueada pelo navegador. Permita pop-ups no Safari/Chrome.';
       case 'popup-closed-by-user':
         return 'A janela do Google foi fechada antes de concluir.';
       case 'cancelled':

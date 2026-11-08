@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mecloc/main.dart';
 import 'package:mecloc/models/workshop.dart';
+import 'package:mecloc/providers/auth_provider.dart';
 import 'package:mecloc/providers/theme_provider.dart';
 import 'package:mecloc/providers/workshop_provider.dart';
 import 'package:mecloc/providers/vehicle_provider.dart';
@@ -65,6 +66,7 @@ void main() {
           create: (_) => WorkshopProvider()..initialize(searchOnStart: false)),
       ChangeNotifierProvider(create: (_) => VehicleProvider()..initialize()),
       ChangeNotifierProvider(create: (_) => QuotesProvider()..initialize()),
+      ChangeNotifierProvider(create: (_) => AuthProvider()),
     ], child: const MecLocApp()));
     await tester.pumpAndSettle();
     expect(find.text('Buscar perto de mim'), findsOneWidget);
@@ -106,6 +108,7 @@ void main() {
       ChangeNotifierProvider.value(value: workshopProvider),
       ChangeNotifierProvider(create: (_) => VehicleProvider()..initialize()),
       ChangeNotifierProvider(create: (_) => QuotesProvider()..initialize()),
+      ChangeNotifierProvider(create: (_) => AuthProvider()),
     ], child: const MecLocApp()));
     await tester.pump();
 
@@ -152,6 +155,7 @@ void main() {
       ChangeNotifierProvider.value(value: workshopProvider),
       ChangeNotifierProvider(create: (_) => VehicleProvider()..initialize()),
       ChangeNotifierProvider(create: (_) => QuotesProvider()..initialize()),
+      ChangeNotifierProvider(create: (_) => AuthProvider()),
     ], child: const MecLocApp()));
     await tester.pumpAndSettle();
 
@@ -189,6 +193,7 @@ void main() {
       ChangeNotifierProvider.value(value: workshopProvider),
       ChangeNotifierProvider(create: (_) => VehicleProvider()..initialize()),
       ChangeNotifierProvider(create: (_) => QuotesProvider()..initialize()),
+      ChangeNotifierProvider(create: (_) => AuthProvider()),
     ], child: const MecLocApp()));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'Campinas, SP');

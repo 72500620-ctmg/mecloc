@@ -31,16 +31,25 @@ class WorkshopDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<WorkshopProvider>();
-    final authProvider = Provider.of<AuthProvider?>(context);
-    final saved = provider.isFavorite(workshop.id);
-    final isRegistered = workshop.isCustomRegistered;
+    final authProvider = context.watch<AuthProvider>();
+
+    // Resolve a oficina atualizada se ela tiver sido personalizada/reivindicada
+    final w = provider.customWorkshops.firstWhere(
+      (c) =>
+          c.id == workshop.id ||
+          c.name.toLowerCase().trim() == workshop.name.toLowerCase().trim(),
+      orElse: () => workshop,
+    );
+
+    final saved = provider.isFavorite(w.id);
+    final isRegistered = w.isCustomRegistered;
 
     // Apenas o dono logado que registrou a oficina pode editá-la
-    final currentUserId = authProvider?.user?.uid;
+    final currentUserId = authProvider.user?.uid;
     final isOwner = isRegistered &&
         currentUserId != null &&
-        workshop.ownerId != null &&
-        workshop.ownerId == currentUserId;
+        w.ownerId != null &&
+        w.ownerId == currentUserId;
 
     return Scaffold(
       appBar: AppBar(
@@ -48,7 +57,7 @@ class WorkshopDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: saved ? 'Remover dos favoritos' : 'Salvar nos favoritos',
-            onPressed: () => provider.toggleFavorite(workshop.id),
+            onPressed: () => provider.toggleFavorite(w.id),
             icon: Icon(saved ? Icons.favorite : Icons.favorite_border),
           ),
           if (isOwner)
@@ -59,7 +68,7 @@ class WorkshopDetailScreen extends StatelessWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => WorkshopRegistrationScreen(
-                      workshopToEdit: workshop,
+                      workshopToEdit: w,
                     ),
                   ),
                 );
@@ -71,9 +80,9 @@ class WorkshopDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
         children: [
           // Banner de Fachada / Imagem da Oficina
-          if (workshop.imageUrl != null && workshop.imageUrl!.isNotEmpty) ...[
+          if (w.imageUrl != null && w.imageUrl!.isNotEmpty) ...[
             WorkshopImageHelper.buildImage(
-              imageUrl: workshop.imageUrl,
+              imageUrl: w.imageUrl,
               width: double.infinity,
               height: 190,
               borderRadius: BorderRadius.circular(20),
@@ -86,7 +95,7 @@ class WorkshopDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                workshop.name,
+                w.name,
                 style: Theme.of(context)
                     .textTheme
                     .headlineSmall
@@ -101,20 +110,20 @@ class WorkshopDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4.5),
                     decoration: BoxDecoration(
-                      color: workshop.categoryColor.withValues(alpha: 0.12),
+                      color: w.categoryColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(workshop.iconData, size: 14, color: workshop.categoryColor),
+                        Icon(w.iconData, size: 14, color: w.categoryColor),
                         const SizedBox(width: 5),
                         Text(
-                          workshop.category,
+                          w.category,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: workshop.categoryColor,
+                            color: w.categoryColor,
                           ),
                         ),
                       ],
@@ -179,7 +188,7 @@ class WorkshopDetailScreen extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.place_outlined),
             title: const Text('Endereço', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-            subtitle: Text(workshop.address),
+            subtitle: Text(w.address),
           ),
 
           // SE FOR REGISTRADA: Exibe contato verificado e detalhes do proprietário
@@ -221,7 +230,7 @@ class WorkshopDetailScreen extends StatelessWidget {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => WorkshopRegistrationScreen(
-                              workshopToEdit: workshop,
+                              workshopToEdit: w,
                             ),
                           ),
                         );
@@ -232,20 +241,20 @@ class WorkshopDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            if (workshop.phone?.trim().isNotEmpty == true)
+            if (w.phone?.trim().isNotEmpty == true)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366)),
                 title: const Text('WhatsApp Verificado', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-                subtitle: Text(workshop.phone!),
+                subtitle: Text(w.phone!),
               ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.schedule),
               title: const Text('Horário de Atendimento', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-              subtitle: Text(workshop.openingHours),
+              subtitle: Text(w.openingHours),
             ),
-            if (workshop.description != null && workshop.description!.isNotEmpty) ...[
+            if (w.description != null && w.description!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -258,7 +267,7 @@ class WorkshopDetailScreen extends StatelessWidget {
                   children: [
                     const Text('Diferenciais da Oficina', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                     const SizedBox(height: 4),
-                    Text(workshop.description!, style: const TextStyle(fontSize: 12.5)),
+                    Text(w.description!, style: const TextStyle(fontSize: 12.5)),
                   ],
                 ),
               ),
@@ -273,7 +282,7 @@ class WorkshopDetailScreen extends StatelessWidget {
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: () => WhatsAppQuoteModal.show(context, workshop: workshop),
+              onPressed: () => WhatsAppQuoteModal.show(context, workshop: w),
               icon: const Icon(Icons.chat_bubble_rounded, size: 20),
               label: const Text(
                 'Pedir Orçamento via WhatsApp',
@@ -287,7 +296,7 @@ class WorkshopDetailScreen extends StatelessWidget {
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: () => _open(context, Uri.parse(workshop.googleMapsUrl)),
+              onPressed: () => _open(context, Uri.parse(w.googleMapsUrl)),
               icon: const Icon(Icons.map_rounded, size: 20),
               label: const Text(
                 'Ver no Google Maps',
@@ -296,12 +305,12 @@ class WorkshopDetailScreen extends StatelessWidget {
             ),
           ] else ...[
             // SE NÃO FOR REGISTRADA: NÃO exibe "Telefone: Não informado", exibe card transparente
-            if (workshop.openingHours != 'Horário não informado')
+            if (w.openingHours != 'Horário não informado')
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.schedule),
                 title: const Text('Horário informado'),
-                subtitle: Text(workshop.openingHours),
+                subtitle: Text(w.openingHours),
               ),
             const SizedBox(height: 10),
 
@@ -348,7 +357,7 @@ class WorkshopDetailScreen extends StatelessWidget {
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: () => _open(context, Uri.parse(workshop.googleMapsUrl)),
+              onPressed: () => _open(context, Uri.parse(w.googleMapsUrl)),
               icon: const Icon(Icons.map_rounded, size: 20),
               label: const Text(
                 'Ver telefone e avaliações no Google Maps',
@@ -356,14 +365,14 @@ class WorkshopDetailScreen extends StatelessWidget {
               ),
             ),
 
-            if (workshop.googleMapsDirectionsUrl != null) ...[
+            if (w.googleMapsDirectionsUrl != null) ...[
               const SizedBox(height: 10),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: () => _open(context, Uri.parse(workshop.googleMapsDirectionsUrl!)),
+                onPressed: () => _open(context, Uri.parse(w.googleMapsDirectionsUrl!)),
                 icon: const Icon(Icons.directions_car_rounded, size: 20),
                 label: const Text(
                   'Como chegar (Traçar rota GPS)',
@@ -415,8 +424,12 @@ class WorkshopDetailScreen extends StatelessWidget {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => WorkshopRegistrationScreen(
-                            initialName: workshop.name,
-                            initialAddress: workshop.address,
+                            initialName: w.name,
+                            initialAddress: w.address,
+                            initialLatitude: w.latitude,
+                            initialLongitude: w.longitude,
+                            initialPhone: w.phone,
+                            initialCategory: w.categoryType,
                           ),
                         ),
                       );
@@ -437,11 +450,11 @@ class WorkshopDetailScreen extends StatelessWidget {
           const SizedBox(height: 8),
 
           // Link secundário para dados do OpenStreetMap
-          if (workshop.openStreetMapUrl != null)
+          if (w.openStreetMapUrl != null)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: () => _open(context, Uri.parse(workshop.openStreetMapUrl!)),
+                onPressed: () => _open(context, Uri.parse(w.openStreetMapUrl!)),
                 icon: const Icon(Icons.info_outline, size: 16),
                 label: const Text(
                   'Ver registro bruto no OpenStreetMap',

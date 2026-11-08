@@ -15,11 +15,19 @@ class WorkshopRegistrationScreen extends StatefulWidget {
     super.key,
     this.initialName,
     this.initialAddress,
+    this.initialLatitude,
+    this.initialLongitude,
+    this.initialPhone,
+    this.initialCategory,
     this.workshopToEdit,
   });
 
   final String? initialName;
   final String? initialAddress;
+  final double? initialLatitude;
+  final double? initialLongitude;
+  final String? initialPhone;
+  final WorkshopCategory? initialCategory;
   final Workshop? workshopToEdit;
 
   @override
@@ -109,10 +117,10 @@ class _WorkshopRegistrationScreenState
       text: edit?.name ?? widget.initialName ?? '',
     );
     _whatsappController = TextEditingController(
-      text: edit?.whatsappPhone ?? edit?.phone ?? '',
+      text: edit?.whatsappPhone ?? edit?.phone ?? widget.initialPhone ?? '',
     );
     _phoneController = TextEditingController(
-      text: edit?.phone ?? '',
+      text: edit?.phone ?? widget.initialPhone ?? '',
     );
     _addressController = TextEditingController(
       text: edit?.address ??
@@ -142,6 +150,8 @@ class _WorkshopRegistrationScreenState
       _selectedSpecialties.clear();
       _selectedSpecialties.addAll(edit.specialties);
       _hasEmergencyService = edit.specialties.contains('Socorro Móvel / Guincho');
+    } else if (widget.initialCategory != null) {
+      _selectedCategory = widget.initialCategory!;
     }
   }
 
@@ -249,12 +259,16 @@ class _WorkshopRegistrationScreenState
     }
 
     final existing = widget.workshopToEdit;
+    final fallbackCenter = context.read<WorkshopProvider>().searchCenter;
+    final lat = existing?.latitude ?? widget.initialLatitude ?? fallbackCenter?.latitude;
+    final lng = existing?.longitude ?? widget.initialLongitude ?? fallbackCenter?.longitude;
+
     final updatedWorkshop = Workshop(
       id: existing?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
       address: fullAddress,
-      latitude: existing?.latitude,
-      longitude: existing?.longitude,
+      latitude: lat,
+      longitude: lng,
       phone: whatsapp.isNotEmpty ? whatsapp : (phone.isNotEmpty ? phone : null),
       whatsappPhone: whatsapp,
       category: catName,
@@ -303,7 +317,14 @@ class _WorkshopRegistrationScreenState
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<WorkshopProvider>();
-    final myCustoms = provider.customWorkshops;
+    final auth = context.watch<AuthProvider>();
+    final isAuthenticated = auth.isAuthenticated;
+    final currentUserId = auth.user?.uid;
+    final myCustoms = isAuthenticated && currentUserId != null
+        ? provider.customWorkshops
+            .where((w) => w.ownerId == currentUserId)
+            .toList()
+        : const <Workshop>[];
 
     return Scaffold(
       appBar: AppBar(
