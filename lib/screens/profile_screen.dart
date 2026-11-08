@@ -50,19 +50,19 @@ class ProfileScreen extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
     final workshopProvider = context.watch<WorkshopProvider>();
-    final authProvider = Provider.of<AuthProvider?>(context);
+    final authProvider = context.watch<AuthProvider>();
     final activeVehicle = vehicleProvider.activeVehicle;
-    final isAuthenticated = authProvider?.isAuthenticated ?? false;
-    final currentUserId = authProvider?.user?.uid;
+    final isAuthenticated = authProvider.isAuthenticated;
+    final currentUserId = authProvider.user?.uid;
     final myWorkshops = isAuthenticated && currentUserId != null
         ? workshopProvider.customWorkshops
             .where((w) => w.ownerId == currentUserId || w.ownerId == null)
             .toList()
         : const <Workshop>[];
-    final displayName = authProvider?.displayName ?? 'Visitante';
-    final email = authProvider?.email ?? '';
-    final photoUrl = authProvider?.photoUrl;
-    final isWorkshopOwner = authProvider?.isWorkshopOwner ?? false;
+    final displayName = authProvider.displayName;
+    final email = authProvider.email;
+    final photoUrl = authProvider.photoUrl;
+    final isWorkshopOwner = authProvider.isWorkshopOwner;
 
     return Scaffold(
       appBar: AppBar(

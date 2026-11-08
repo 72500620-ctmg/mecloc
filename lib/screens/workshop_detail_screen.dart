@@ -31,7 +31,7 @@ class WorkshopDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<WorkshopProvider>();
-    final authProvider = Provider.of<AuthProvider?>(context);
+    final authProvider = context.watch<AuthProvider>();
 
     // Resolve a oficina atualizada se ela tiver sido personalizada/reivindicada
     final w = provider.customWorkshops.firstWhere(
@@ -45,7 +45,7 @@ class WorkshopDetailScreen extends StatelessWidget {
     final isRegistered = w.isCustomRegistered;
 
     // Apenas o dono logado que registrou a oficina pode editá-la
-    final currentUserId = authProvider?.user?.uid;
+    final currentUserId = authProvider.user?.uid;
     final isOwner = isRegistered &&
         currentUserId != null &&
         w.ownerId != null &&
