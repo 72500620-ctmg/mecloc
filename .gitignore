@@ -18,7 +18,10 @@ ios/.symlinks/
 .idea/
 .vscode/
 
-# Local configuration and secrets
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
 .env
 .env.*
 !.env.example
