@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../providers/theme_provider.dart';
 import '../widgets/app_notice.dart';
+import 'quotes_screen.dart';
+import 'workshop_registration_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -70,8 +72,80 @@ class SettingsScreen extends StatelessWidget {
             tone: AppNoticeTone.info,
           ),
           const SizedBox(height: 14),
+          const SizedBox(height: 24),
+          Text('Proprietários & Parceiros', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 6),
           Text(
-            'A preferência fica salva neste dispositivo.',
+            'Recursos para oficinas mecânicas e prestadores de serviços.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF107C41).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.storefront_rounded, color: Color(0xFF107C41)),
+              ),
+              title: const Text(
+                'Cadastre sua Oficina',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Receba cotações direto no WhatsApp e apareça no topo das buscas.',
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const WorkshopRegistrationScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Histórico de Cotações', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: Colors.blue),
+              ),
+              title: const Text(
+                'Meus Orçamentos',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Visualize conversas e orçamentos solicitados.',
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const QuotesScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'MecLoc • Versão 1.2.0\nSeu assistente automotivo inteligente',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),

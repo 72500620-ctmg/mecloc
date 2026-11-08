@@ -110,6 +110,38 @@ class VehicleProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateMileage(String id, int newMileageKm) async {
+    _vehicles = _vehicles.map((v) {
+      if (v.id == id) {
+        return v.copyWith(mileageKm: newMileageKm);
+      }
+      return v;
+    }).toList();
+    await _save();
+    notifyListeners();
+  }
+
+  Future<void> recordMaintenanceDone(String vehicleId, String maintenanceId, int doneAtKm) async {
+    _vehicles = _vehicles.map((v) {
+      if (v.id == vehicleId) {
+        final currentKm = doneAtKm > v.mileageKm ? doneAtKm : v.mileageKm;
+        switch (maintenanceId) {
+          case 'oil_filter':
+            return v.copyWith(lastOilChangeKm: doneAtKm, mileageKm: currentKm);
+          case 'brakes':
+            return v.copyWith(lastBrakesKm: doneAtKm, mileageKm: currentKm);
+          case 'filters_air':
+            return v.copyWith(lastFiltersKm: doneAtKm, mileageKm: currentKm);
+          case 'timing_belt':
+            return v.copyWith(lastTimingBeltKm: doneAtKm, mileageKm: currentKm);
+        }
+      }
+      return v;
+    }).toList();
+    await _save();
+    notifyListeners();
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _vehicles.map((v) => jsonEncode(v.toJson())).toList();

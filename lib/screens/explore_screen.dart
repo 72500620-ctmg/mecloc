@@ -11,9 +11,11 @@ import '../providers/vehicle_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_notice.dart';
+import '../widgets/emergency_modal.dart';
 import '../widgets/workshop_list_tile.dart';
 import 'quotes_screen.dart';
 import 'workshop_detail_screen.dart';
+import 'workshop_registration_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -88,6 +90,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void _openQuotes() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const QuotesScreen()),
+    );
+  }
+
+  void _openEmergencyModal() {
+    EmergencyModal.show(
+      context,
+      onSelectCategory: (keyword, category) {
+        final prov = context.read<WorkshopProvider>();
+        if (category != null) {
+          prov.setSelectedCategory(category);
+        }
+        if (keyword.isNotEmpty) {
+          _cityController.text = keyword;
+          prov.setSearchQuery(keyword);
+        }
+      },
+    );
+  }
+
+  void _openWorkshopRegistration() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const WorkshopRegistrationScreen(),
+      ),
     );
   }
 
@@ -304,6 +330,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
               ),
             ),
+          // Botão flutuante SOS no mapa
+          Positioned(
+            right: 14,
+            top: MediaQuery.paddingOf(context).top + 68,
+            child: Material(
+              elevation: 4,
+              color: Colors.red.shade700,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: _openEmergencyModal,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text(
+                        'SOS',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           Positioned.fill(
             top: MediaQuery.paddingOf(context).top + 76,
             bottom: 0,
@@ -371,7 +429,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ]),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 2, 18, 8),
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: !provider.hasSearched ||
@@ -388,6 +446,56 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 icon: const Icon(Icons.my_location, size: 18),
                                 label: const Text('Minha localização'),
                               ),
+                      ),
+                    ),
+                    // BARRA DE AÇÕES RÁPIDAS: SOS, ORÇAMENTOS E CADASTRO
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.red.withValues(alpha: 0.12),
+                                foregroundColor: Colors.red.shade700,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              onPressed: _openEmergencyModal,
+                              icon: const Icon(Icons.warning_amber_rounded, size: 16),
+                              label: const Text(
+                                '🚨 Auto Socorro (SOS)',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.12),
+                                foregroundColor: const Color(0xFF107C41),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              onPressed: _openQuotes,
+                              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                              label: const Text(
+                                'Orçamentos',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              onPressed: _openWorkshopRegistration,
+                              icon: const Icon(Icons.storefront_outlined, size: 16),
+                              label: const Text(
+                                'Sou Dono de Oficina',
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     if (provider.errorMessage != null)

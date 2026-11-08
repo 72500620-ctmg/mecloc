@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/maintenance_item.dart';
 import '../models/vehicle.dart';
 import '../providers/vehicle_provider.dart';
+import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/whatsapp_quote_modal.dart';
 
 class VehicleScreen extends StatefulWidget {
   const VehicleScreen({super.key});
@@ -19,6 +22,132 @@ class _VehicleScreenState extends State<VehicleScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const _AddVehicleSheet(),
+    );
+  }
+
+  void _editMileage(BuildContext context, Vehicle v) {
+    final controller = TextEditingController(text: v.mileageKm.toString());
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Atualizar Quilometragem'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Informe a km atual do seu ${v.shortName}:',
+                style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Quilometragem atual (km)',
+                suffixText: 'km',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newKm = int.tryParse(controller.text.replaceAll(RegExp(r'\D'), ''));
+              if (newKm != null && newKm > 0) {
+                context.read<VehicleProvider>().updateMileage(v.id, newKm);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Odômetro atualizado para $newKm km!')),
+                );
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _markMaintenanceDone(BuildContext context, Vehicle v, MaintenanceItem item) {
+    context.read<VehicleProvider>().recordMaintenanceDone(v.id, item.id, v.mileageKm);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF107C41),
+        content: Text('Revisão "${item.title}" marcada como feita aos ${v.mileageKm} km!'),
+      ),
+    );
+  }
+
+  void _quoteMaintenance(BuildContext context, Vehicle v, MaintenanceItem item) {
+    final workshopProvider = context.read<WorkshopProvider>();
+    final workshops = workshopProvider.workshops.isNotEmpty
+        ? workshopProvider.workshops
+        : workshopProvider.customWorkshops;
+
+    if (workshops.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pesquise oficinas na aba "Explorar" para cotar este serviço.'),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cotar: ${item.title}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Escolha a oficina para cotar via WhatsApp para seu ${v.shortName}:',
+              style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+            ),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: workshops.take(12).length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final w = workshops[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: w.categoryColor.withValues(alpha: 0.15),
+                      child: Icon(w.iconData, color: w.categoryColor, size: 20),
+                    ),
+                    title: Text(w.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text(w.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      WhatsAppQuoteModal.show(
+                        context,
+                        workshop: w,
+                        initialService: item.recommendedService,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -275,6 +404,166 @@ class _VehicleScreenState extends State<VehicleScreen> {
                       ),
                       const SizedBox(height: 12),
 
+                      // Odômetro e Quilometragem
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.speed_rounded, size: 18, color: AppColors.forest),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Odômetro: ${v.mileageKm.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} km',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () => _editMileage(context, v),
+                              icon: const Icon(Icons.edit_outlined, size: 12),
+                              label: const Text('Atualizar', style: TextStyle(fontSize: 11.5)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Painel de Manutenção Preventiva do Veículo Ativo
+                      if (isSelected) ...[
+                        const Divider(height: 1),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Icon(Icons.health_and_safety_rounded, color: AppColors.forest, size: 18),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                'Saúde & Manutenção',
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.forest.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${v.getMaintenanceList().where((m) => m.getStatus(v.mileageKm) == MaintenanceStatus.ok).length} em dia',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.forest,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ...v.getMaintenanceList().map((item) {
+                          final color = item.statusColor(v.mileageKm);
+                          final statusLabel = item.statusBadgeLabel(v.mileageKm);
+                          final diffText = item.statusText(v.mileageKm);
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF9F9F9),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: color.withValues(alpha: 0.3),
+                                width: 1.1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(item.icon, size: 18, color: color),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        item.title,
+                                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        statusLabel,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: color,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  diffText,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: color,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          minimumSize: const Size(0, 34),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                        onPressed: () => _markMaintenanceDone(context, v, item),
+                                        icon: const Icon(Icons.check_rounded, size: 14),
+                                        label: const Text('Feita hoje', style: TextStyle(fontSize: 11.5)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton.tonalIcon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.15),
+                                          foregroundColor: const Color(0xFF107C41),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          minimumSize: const Size(0, 34),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                        onPressed: () => _quoteMaintenance(context, v, item),
+                                        icon: const Icon(Icons.chat_bubble_rounded, size: 13),
+                                        label: const Text('Cotar WhatsApp', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 8),
+                      ],
+
                       if (!isSelected)
                         SizedBox(
                           width: double.infinity,
@@ -363,6 +652,7 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
   String _fuel = 'Flex';
   String _transmission = 'Automático';
   final _plateController = TextEditingController();
+  final _mileageController = TextEditingController(text: '45000');
 
   final List<String> _popularBrands = const [
     'Volkswagen',
@@ -401,11 +691,14 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
     _modelController.dispose();
     _versionController.dispose();
     _plateController.dispose();
+    _mileageController.dispose();
     super.dispose();
   }
 
   void _saveVehicle() {
     if (!_formKey.currentState!.validate()) return;
+
+    final km = int.tryParse(_mileageController.text.replaceAll(RegExp(r'\D'), '')) ?? 45000;
 
     final vehicle = Vehicle(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -418,6 +711,11 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
       version: _versionController.text.trim(),
       plate: _plateController.text.trim().toUpperCase(),
       isSelected: true,
+      mileageKm: km,
+      lastOilChangeKm: km > 5000 ? km - 5000 : 0,
+      lastBrakesKm: km > 15000 ? km - 15000 : 0,
+      lastFiltersKm: km > 5000 ? km - 5000 : 0,
+      lastTimingBeltKm: 0,
     );
 
     context.read<VehicleProvider>().addVehicle(vehicle);
@@ -574,6 +872,19 @@ class _AddVehicleSheetState extends State<_AddVehicleSheet> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+
+                // Quilometragem atual
+                TextFormField(
+                  controller: _mileageController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quilometragem atual (km)',
+                    hintText: 'Ex.: 48500',
+                    prefixIcon: Icon(Icons.speed_rounded),
+                    suffixText: 'km',
+                  ),
                 ),
                 const SizedBox(height: 12),
 
