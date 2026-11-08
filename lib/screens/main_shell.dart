@@ -6,6 +6,14 @@ import 'favorites_screen.dart';
 import 'profile_screen.dart';
 import 'vehicle_screen.dart';
 
+class MainShellNavigation {
+  static final ValueNotifier<int> tabIndex = ValueNotifier<int>(0);
+
+  static void switchToTab(int index) {
+    tabIndex.value = index;
+  }
+}
+
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -15,6 +23,26 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    MainShellNavigation.tabIndex.addListener(_onTabNavChange);
+  }
+
+  @override
+  void dispose() {
+    MainShellNavigation.tabIndex.removeListener(_onTabNavChange);
+    super.dispose();
+  }
+
+  void _onTabNavChange() {
+    if (mounted && index != MainShellNavigation.tabIndex.value) {
+      setState(() {
+        index = MainShellNavigation.tabIndex.value;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +75,9 @@ class _MainShellState extends State<MainShell> {
                   backgroundColor: Theme.of(context).colorScheme.surface,
                   elevation: 0,
                   selectedIndex: index,
-                  onDestinationSelected: (value) =>
-                      setState(() => index = value),
+                  onDestinationSelected: (value) {
+                    MainShellNavigation.switchToTab(value);
+                  },
                   destinations: const [
                     NavigationDestination(
                       icon: Icon(Icons.map_outlined),

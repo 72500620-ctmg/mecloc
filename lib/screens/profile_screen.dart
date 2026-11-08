@@ -9,6 +9,7 @@ import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
+import 'main_shell.dart';
 import 'my_workshops_screen.dart';
 import 'settings_screen.dart';
 import 'vehicle_screen.dart';
@@ -30,12 +31,16 @@ class ProfileScreen extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.coralRed),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              context.read<AuthProvider>().signOut();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Você saiu da sua conta.')),
-              );
+              await context.read<AuthProvider>().signOut();
+              if (context.mounted) {
+                context.read<VehicleProvider>().clearSession();
+                MainShellNavigation.switchToTab(0);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Você saiu da sua conta.')),
+                );
+              }
             },
             child: const Text('Sair'),
           ),
@@ -142,7 +147,7 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          if (activeVehicle != null)
+                          if (isAuthenticated && activeVehicle != null)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
@@ -355,9 +360,22 @@ class ProfileScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.directions_car_filled_rounded, color: AppColors.forest),
                   title: const Text('Gerenciar Veículos'),
-                  subtitle: Text('${vehicleProvider.vehicles.length} veículos cadastrados'),
+                  subtitle: Text(
+                    !isAuthenticated
+                        ? 'Faça login para cadastrar veículos'
+                        : vehicleProvider.vehicles.isEmpty
+                            ? 'Nenhum veículo cadastrado'
+                            : '${vehicleProvider.vehicles.length} veículo(s) cadastrado(s)',
+                  ),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
+                    if (!isAuthenticated) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                      );
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute<void>(builder: (_) => const VehicleScreen()),
