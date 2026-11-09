@@ -32,9 +32,11 @@ class ExploreScreen extends StatefulWidget {
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
-class _ExploreScreenState extends State<ExploreScreen> {
+class _ExploreScreenState extends State<ExploreScreen>
+    with TickerProviderStateMixin {
   final _cityController = TextEditingController();
   final _mapController = MapController();
+  AnimationController? _mapAnimationController;
   static const _initialCenter = LatLng(-14.235, -51.9253);
 
   // Constantes de layout do Design System
@@ -88,6 +90,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   void dispose() {
+    _mapAnimationController?.dispose();
     _workshopProvider?.removeListener(_onLocationChanged);
     _autoSearchDebounce?.cancel();
     _cityController.dispose();
@@ -211,6 +214,78 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _retrySearch() => context.read<WorkshopProvider>().retrySearch();
 
+  void _onTapWorkshopPin(Workshop w) {
+    if (w.latitude == null || w.longitude == null) {
+      WorkshopDetailSheet.show(context, w);
+      return;
+    }
+
+    final targetLocation = LatLng(w.latitude!, w.longitude!);
+    final currentZoom = _mapController.camera.zoom;
+    final targetZoom = currentZoom < 16.0 ? 16.2 : currentZoom;
+
+    _animatedMapMove(
+      destLocation: targetLocation,
+      destZoom: targetZoom,
+      onComplete: () {
+        if (mounted) {
+          WorkshopDetailSheet.show(context, w);
+        }
+      },
+    );
+  }
+
+  void _animatedMapMove({
+    required LatLng destLocation,
+    required double destZoom,
+    VoidCallback? onComplete,
+  }) {
+    _mapAnimationController?.stop();
+    _mapAnimationController?.dispose();
+
+    final startLocation = _mapController.camera.center;
+    final startZoom = _mapController.camera.zoom;
+
+    final latTween = Tween<double>(
+      begin: startLocation.latitude,
+      end: destLocation.latitude,
+    );
+    final lngTween = Tween<double>(
+      begin: startLocation.longitude,
+      end: destLocation.longitude,
+    );
+    final zoomTween = Tween<double>(
+      begin: startZoom,
+      end: destZoom,
+    );
+
+    final controller = AnimationController(
+      duration: const Duration(milliseconds: 480),
+      vsync: this,
+    );
+    _mapAnimationController = controller;
+
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.fastOutSlowIn,
+    );
+
+    controller.addListener(() {
+      _mapController.move(
+        LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
+        zoomTween.evaluate(animation),
+      );
+    });
+
+    animation.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        onComplete?.call();
+      }
+    });
+
+    controller.forward();
+  }
+
   void _openQuotes() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const QuotesScreen()),
@@ -280,7 +355,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               rotate: true,
               child: WorkshopPinMarker(
                 workshop: w,
-                onTap: () => WorkshopDetailSheet.show(context, w),
+                onTap: () => _onTapWorkshopPin(w),
               ),
             ))
         .toList();
@@ -655,31 +730,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             ),
                           ),
                         ),
-                      if (provider.isLoading ||
-                          provider.searchNotice != null ||
-                          _zoomTooWide ||
-                          provider.automaticRetryAt != null ||
-                          (provider.errorMessage != null &&
-                              (results.isNotEmpty ||
-                                  provider.lastSearchAutomatic)))
-                        SearchStatus(
-                          label: provider.isLoading
-                              ? 'Buscando nesta região…'
-                              : _zoomTooWide
-                                  ? 'Aproxime o mapa para buscar nesta região'
-                                  : provider.automaticRetryAt != null
-                                      ? 'Atualização em instantes'
-                                      : provider.resultsStale
-                                          ? 'Dados salvos · atualização indisponível'
-                                          : provider.searchNotice != null
-                                              ? 'Cobertura limitada'
-                                              : 'Atualização indisponível',
-                          message: provider.searchNotice ??
-                              provider.errorMessage ??
-                              'A busca é atualizada após o mapa parar.',
-                          busy: provider.isLoading,
-                          onRefresh: _retrySearch,
-                        ),
 
                       // RENDERIZAÇÃO CONDICIONAL: MODO BUSCA vs DISCOVERY HUB
                       if (isSearching)
@@ -795,6 +845,49 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ),
           ),
+
+          // 6. MENSAGEM FLUTUANTE DE STATUS/LOADING EM CIMA DO MAPA (PRÓXIMO AO CONTAINER PRINCIPAL)
+          if (provider.isLoading ||
+              provider.searchNotice != null ||
+              _zoomTooWide ||
+              provider.automaticRetryAt != null ||
+              (provider.errorMessage != null &&
+                  (results.isNotEmpty || provider.lastSearchAutomatic)))
+            Positioned(
+              left: _kMapFloatingPadding,
+              right: 76,
+              bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) *
+                      _sheetExtent) +
+                  14,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: _sheetExtent > 0.78 ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _sheetExtent > 0.78,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SearchStatus(
+                      label: provider.isLoading
+                          ? 'Buscando nesta região…'
+                          : _zoomTooWide
+                              ? 'Aproxime o mapa para buscar nesta região'
+                              : provider.automaticRetryAt != null
+                                  ? 'Atualização em instantes'
+                                  : provider.resultsStale
+                                      ? 'Dados salvos · atualização indisponível'
+                                      : provider.searchNotice != null
+                                          ? 'Cobertura limitada'
+                                          : 'Atualização indisponível',
+                      message: provider.searchNotice ??
+                          provider.errorMessage ??
+                          'A busca é atualizada após o mapa parar.',
+                      busy: provider.isLoading,
+                      onRefresh: _retrySearch,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

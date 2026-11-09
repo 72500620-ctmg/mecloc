@@ -80,7 +80,7 @@ void main() {
       final provider = WorkshopProvider();
 
       const workshopId = 'partner:autobahn:001';
-      final review1 = WorkshopReview(
+      const review1 = WorkshopReview(
         authorName: 'Carlos Silveira',
         rating: 5.0,
         comment: 'Serviço impecável no meu Polo TSI!',
@@ -95,7 +95,7 @@ void main() {
       expect(reviews.first.authorName, equals('Carlos Silveira'));
       expect(reviews.first.rating, equals(5.0));
 
-      final review2 = WorkshopReview(
+      const review2 = WorkshopReview(
         authorName: 'Mariana Lima',
         rating: 4.0,
         comment: 'Muito bom, recomendo.',
