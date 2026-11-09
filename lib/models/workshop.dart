@@ -399,12 +399,15 @@ class Workshop {
     final type = json['type'] as String? ?? 'node';
     final id = json['id'];
 
-    final rawName = tags['name'] as String? ?? 'Oficina mecânica';
-    final parsedCategory = _detectCategory(tags, rawName);
+    final rawName = (tags['name'] as String?)?.trim();
+    final name = (rawName != null && rawName.isNotEmpty)
+        ? rawName
+        : _deriveDefaultName(tags);
+    final parsedCategory = _detectCategory(tags, name);
 
     return Workshop(
       id: 'osm:$type:$id',
-      name: rawName,
+      name: name,
       address: address.isEmpty ? 'Endereço não informado' : address,
       latitude: latitude,
       longitude: longitude,
@@ -417,6 +420,16 @@ class Workshop {
       categoryType: parsedCategory.$1,
       openingHours: tags['opening_hours'] as String? ?? 'Horário não informado',
     );
+  }
+
+  static String _deriveDefaultName(Map<String, dynamic> tags) {
+    if (tags['amenity'] == 'car_wash') return 'Lava-Jato';
+    if (tags['shop'] == 'tyres') return 'Borracharia / Pneus';
+    if (tags['shop'] == 'car_parts') return 'Auto Peças & Acessórios';
+    if (tags['shop'] == 'car') return 'Centro Automotivo / Concessionária';
+    if (tags['shop'] == 'motorcycle_repair') return 'Mecânica de Motos';
+    if (tags['craft'] == 'car_repair') return 'Funilaria e Pintura';
+    return 'Oficina mecânica';
   }
 
   static double? _number(Object? value) {
@@ -434,6 +447,7 @@ class Workshop {
     if (tags['shop'] == 'car_parts') return (WorkshopCategory.autoCenter, 'Auto Peças & Serviços');
     if (tags['shop'] == 'car') return (WorkshopCategory.autoCenter, 'Centro Automotivo / Concessionária');
     if (tags['shop'] == 'motorcycle_repair') return (WorkshopCategory.mechanic, 'Mecânica de Motos');
+    if (tags['craft'] == 'car_repair') return (WorkshopCategory.bodyPaint, 'Funilaria e Pintura');
     return (WorkshopCategory.mechanic, 'Oficina mecânica');
   }
 }

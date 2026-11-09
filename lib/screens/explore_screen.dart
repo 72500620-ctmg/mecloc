@@ -51,6 +51,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Timer? _autoSearchDebounce;
   LatLng? _lastAutoSearchedCenter;
   double _lastZoom = 13.0;
+  bool _showSearchAreaButton = false;
 
   @override
   void dispose() {
@@ -61,34 +62,54 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _onMapCameraMoved(LatLng newCenter, double newZoom) {
-    // 1. Se a alteração de câmera foi apenas de zoom (sem deslocamento significativo do centro),
-    // NÃO dispara busca automática nem considera como mudança de localidade geográfica.
-    final zoomChanged = (_lastZoom - newZoom).abs() > 0.05;
     _lastZoom = newZoom;
 
     final searchCenter = context.read<WorkshopProvider>().searchCenter;
     final reference = _lastAutoSearchedCenter ?? searchCenter;
     if (reference != null) {
       final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
-      // Só busca se mover mais de 2.0km da última busca (evita sobrecarga no Overpass/Stadia)
-      if (dist < 2000) return;
+      if (dist > 350 && !_showSearchAreaButton) {
+        setState(() => _showSearchAreaButton = true);
+      }
+      // Se mover mais de 1.500m, prepara busca automática após debounce confortável de 1.2s
+      if (dist >= 1500) {
+        _autoSearchDebounce?.cancel();
+        _autoSearchDebounce =
+            Timer(const Duration(milliseconds: 1200), () async {
+          if (!mounted) return;
+          _triggerSearchInCurrentArea();
+        });
+      }
+    } else {
+      if (!_showSearchAreaButton) {
+        setState(() => _showSearchAreaButton = true);
+      }
     }
+  }
 
-    // Se o usuário apenas alterou o zoom sem deslocar o centro geográfico acima do limiar,
-    // não precisamos reconsultar a API de oficinas.
-    if (zoomChanged && reference != null) {
-      final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
-      if (dist < 2000) return;
+  void _triggerSearchInCurrentArea() {
+    if (_showSearchAreaButton) {
+      setState(() => _showSearchAreaButton = false);
     }
+    final center = _mapController.camera.center;
+    final zoom = _mapController.camera.zoom;
+    final bounds = _mapController.camera.visibleBounds;
 
-    _autoSearchDebounce?.cancel();
-    _autoSearchDebounce = Timer(const Duration(milliseconds: 650), () async {
-      if (!mounted) return;
-      _lastAutoSearchedCenter = newCenter;
-      await context
-          .read<WorkshopProvider>()
-          .searchWorkshops(customCenter: newCenter);
-    });
+    _lastAutoSearchedCenter = center;
+
+    // Ajusta raio conforme nível de zoom para consulta rápida e focada
+    final radiusMeters = zoom >= 15 ? 2000 : (zoom >= 13 ? 4000 : 8000);
+
+    context.read<WorkshopProvider>().searchWorkshops(
+          customCenter: center,
+          radiusMeters: radiusMeters,
+          boundingBox: (
+            south: bounds.south,
+            west: bounds.west,
+            north: bounds.north,
+            east: bounds.east,
+          ),
+        );
   }
 
   Future<void> _performSearch() async {
@@ -422,6 +443,48 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ),
           ),
+
+          // BOTÃO FLUTUANTE: BUSCAR NESTA ÁREA (Estilo Google Maps)
+          if (_showSearchAreaButton && !provider.isLoading)
+            Positioned(
+              left: _kMapFloatingPadding,
+              top: topInset + 80,
+              child: Material(
+                elevation: 4,
+                color: Theme.of(context).colorScheme.surface,
+                shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                borderRadius: BorderRadius.circular(20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                    width: 1,
+                  ),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: _triggerSearchInCurrentArea,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 16, color: AppColors.cobaltPrimary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Buscar nesta área',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // 3. BOTÃO FLUTUANTE SOS NO MAPA (com margem padronizada)
           Positioned(

@@ -346,10 +346,16 @@ out body center 15;
     return const [];
   }
 
-  Future<List<Workshop>> searchNearbyWorkshops(LatLng center) async {
+  Future<List<Workshop>> searchNearbyWorkshops(
+    LatLng center, {
+    int? radiusMeters,
+    ({double south, double west, double north, double east})? boundingBox,
+  }) async {
     const distanceCalc = Distance();
-    final cacheKey =
-        '${(center.latitude * 50).round() / 50},${(center.longitude * 50).round() / 50}';
+    final effectiveRadius = radiusMeters ?? _searchRadiusMeters;
+    final cacheKey = boundingBox != null
+        ? '${boundingBox.south.toStringAsFixed(3)},${boundingBox.west.toStringAsFixed(3)},${boundingBox.north.toStringAsFixed(3)},${boundingBox.east.toStringAsFixed(3)}'
+        : '${(center.latitude * 50).round() / 50},${(center.longitude * 50).round() / 50}:$effectiveRadius';
     final cached = _workshopsCache[cacheKey];
     if (cached != null && cached.isNotEmpty) {
       return cached.map((w) {
@@ -366,23 +372,46 @@ out body center 15;
         ..sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
     }
 
-    final query = '''
+    final String query;
+    if (boundingBox != null) {
+      final s = boundingBox.south;
+      final w = boundingBox.west;
+      final n = boundingBox.north;
+      final e = boundingBox.east;
+      query = '''
 [out:json][timeout:15];
 (
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car_repair"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["craft"="car_repair"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["amenity"="car_wash"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="tyres"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car_parts"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="motorcycle_repair"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["service:vehicle:glass"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["service:vehicle:electrical"];
+  nwr($s,$w,$n,$e)["shop"="car_repair"];
+  nwr($s,$w,$n,$e)["craft"="car_repair"];
+  nwr($s,$w,$n,$e)["amenity"="car_wash"];
+  nwr($s,$w,$n,$e)["shop"="tyres"];
+  nwr($s,$w,$n,$e)["shop"="car_parts"];
+  nwr($s,$w,$n,$e)["shop"="car"];
+  nwr($s,$w,$n,$e)["shop"="motorcycle_repair"];
+  nwr($s,$w,$n,$e)["service:vehicle:glass"];
+  nwr($s,$w,$n,$e)["service:vehicle:electrical"];
 );
-out center tags 200;
+out center tags 400;
 ''';
+    } else {
+      query = '''
+[out:json][timeout:15];
+(
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["shop"="car_repair"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["craft"="car_repair"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["amenity"="car_wash"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["shop"="tyres"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["shop"="car_parts"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["shop"="car"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["shop"="motorcycle_repair"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["service:vehicle:glass"];
+  nwr(around:$effectiveRadius,${center.latitude},${center.longitude})["service:vehicle:electrical"];
+);
+out center tags 400;
+''';
+    }
 
-    // Tentar endpoints Overpass em ordem com timeout resiliente de 3.5s
+    // Tentar endpoints Overpass em ordem com timeout resiliente de 5s
     for (final endpoint in _overpassEndpoints) {
       try {
         final response = await _client.post(
@@ -391,7 +420,7 @@ out center tags 200;
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           }),
           body: {'data': query},
-        ).timeout(const Duration(milliseconds: 3500));
+        ).timeout(const Duration(milliseconds: 5000));
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -452,9 +481,12 @@ out center tags 200;
       'auto center',
       'lava jato',
       'pneus',
+      'pneu',
       'borracharia',
       'troca de oleo',
       'martelinho de ouro',
+      'autopeças',
+      'auto peças',
     ];
     final seenIds = <String>{};
     final workshops = <Workshop>[];
@@ -504,10 +536,9 @@ out center tags 200;
         if (!seenIds.add(id)) continue;
 
         final rawName = props['name'] as String?;
-        if (rawName == null || rawName.trim().isEmpty) continue;
 
         // Evita resultados espúrios não relacionados a automóveis
-        final nameLower = rawName.toLowerCase();
+        final nameLower = (rawName ?? '').toLowerCase();
         if (nameLower.contains('cultura') ||
             nameLower.contains('estudante') ||
             nameLower.contains('teatro') ||
@@ -519,8 +550,18 @@ out center tags 200;
         final (catType, catName) = switch (osmValue) {
           'car_wash' => (WorkshopCategory.carWash, 'Lava-jato'),
           'tyres' => (WorkshopCategory.tireShop, 'Pneus'),
+          'car_parts' => (WorkshopCategory.autoCenter, 'Auto Peças & Serviços'),
+          'motorcycle_repair' => (WorkshopCategory.mechanic, 'Mecânica de Motos'),
           _ => (WorkshopCategory.mechanic, 'Oficina mecânica'),
         };
+
+        final effectiveName = (rawName != null && rawName.trim().isNotEmpty)
+            ? rawName.trim()
+            : (catType == WorkshopCategory.carWash
+                ? 'Lava-Jato'
+                : catType == WorkshopCategory.tireShop
+                    ? 'Borracharia / Pneus'
+                    : 'Oficina mecânica');
 
         final addressParts = [
           [
@@ -533,7 +574,7 @@ out center tags 200;
 
         workshops.add(Workshop(
           id: id,
-          name: rawName,
+          name: effectiveName,
           address:
               addressParts.isEmpty ? 'Endereço não informado' : addressParts,
           latitude: lat,

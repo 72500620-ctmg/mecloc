@@ -32,7 +32,11 @@ class _CitySearchService extends OpenStreetMapService {
   }
 
   @override
-  Future<List<Workshop>> searchNearbyWorkshops(LatLng center) async {
+  Future<List<Workshop>> searchNearbyWorkshops(
+    LatLng center, {
+    int? radiusMeters,
+    ({double south, double west, double north, double east})? boundingBox,
+  }) async {
     if (failSearch) throw Exception('Serviço de teste indisponível');
     return [
       Workshop(

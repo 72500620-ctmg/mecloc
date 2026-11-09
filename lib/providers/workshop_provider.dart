@@ -178,11 +178,15 @@ class WorkshopProvider extends ChangeNotifier {
     String city = '',
     String query = '',
     LatLng? customCenter,
+    int? radiusMeters,
+    ({double south, double west, double north, double east})? boundingBox,
   }) async {
     final effectiveQuery = query.isNotEmpty ? query : city;
-    final searchKey = customCenter != null
-        ? '${customCenter.latitude.toStringAsFixed(4)},${customCenter.longitude.toStringAsFixed(4)}'
-        : effectiveQuery.trim().toLowerCase();
+    final searchKey = boundingBox != null
+        ? '${boundingBox.south.toStringAsFixed(3)},${boundingBox.west.toStringAsFixed(3)},${boundingBox.north.toStringAsFixed(3)},${boundingBox.east.toStringAsFixed(3)}'
+        : (customCenter != null
+            ? '${customCenter.latitude.toStringAsFixed(4)},${customCenter.longitude.toStringAsFixed(4)}:${radiusMeters ?? 0}'
+            : effectiveQuery.trim().toLowerCase());
     if (_isLoading && _pendingSearch == searchKey) return;
     _pendingSearch = searchKey;
     final generation = ++_searchGeneration;
@@ -229,12 +233,16 @@ class WorkshopProvider extends ChangeNotifier {
         }
       }
 
-      // 2. Se um centro manual foi fornecido (ex: câmera movida no mapa), busca no raio
+      // 2. Se um centro manual foi fornecido (ex: câmera movida no mapa), busca no raio ou viewport
       if (customCenter != null) {
         _searchCenter = customCenter;
         _openStreetMapService.proximityCenter = customCenter;
         notifyListeners();
-        final results = await _openStreetMapService.searchNearbyWorkshops(customCenter);
+        final results = await _openStreetMapService.searchNearbyWorkshops(
+          customCenter,
+          radiusMeters: radiusMeters,
+          boundingBox: boundingBox,
+        );
         if (_disposed || generation != _searchGeneration) return;
         // Integração cumulativa estilo Google Maps: adiciona novos resultados sem sumir com os anteriores
         for (final w in results) {

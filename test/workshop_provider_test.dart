@@ -12,7 +12,11 @@ class FakeSearch extends OpenStreetMapService {
   Future<LatLng> geocodeCity(String city) async =>
       LatLng(double.parse(city), 0);
   @override
-  Future<List<Workshop>> searchNearbyWorkshops(LatLng center) =>
+  Future<List<Workshop>> searchNearbyWorkshops(
+    LatLng center, {
+    int? radiusMeters,
+    ({double south, double west, double north, double east})? boundingBox,
+  }) =>
       (requests[center.latitude.toInt()] = Completer<List<Workshop>>()).future;
 }
 
