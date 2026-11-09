@@ -206,21 +206,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         provider.selectedCategory != null ||
         provider.searchQuery.trim().isNotEmpty;
 
-    if (provider.searchCenter != null &&
-        provider.searchCenter != _lastCentered) {
-      _lastCentered = provider.searchCenter;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final currentCameraCenter = _mapController.camera.center;
-        final dist = _distance.as(LengthUnit.Meter, currentCameraCenter, center);
-        // Só reposiciona a câmera se o mapa estiver distante do novo centro (ex: busca por texto ou clique em 'Minha localização')
-        // Se a busca decorreu do próprio usuário movendo a câmera na tela, não reseta a posição nem o zoom!
-        if (dist > 300) {
-          _mapController.move(center, _mapController.camera.zoom);
-        }
-      });
-    }
-
     final markers = results
         .where((w) => w.latitude != null && w.longitude != null)
         .map((w) => Marker(
@@ -260,7 +245,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 }
               },
               onMapReady: () {
-                final current = provider.searchCenter;
+                final current = provider.deviceLocation ?? provider.searchCenter;
                 if (current != null) _mapController.move(current, 13);
               },
             ),
