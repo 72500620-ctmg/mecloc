@@ -20,6 +20,9 @@ class WorkshopProvider extends ChangeNotifier {
   static const _favoriteDataKey = 'favorite_workshop_data';
   static const _recentSearchesKey = 'recent_search_terms';
   static const _customWorkshopsKey = 'custom_registered_workshops_v1';
+  static const _reviewsKey = 'workshop_reviews_cache_v1';
+
+  final Map<String, List<WorkshopReview>> _reviewsByWorkshop = {};
 
   static const autobahnPartner = Workshop(
     id: 'partner:autobahn:001',
@@ -117,6 +120,19 @@ class WorkshopProvider extends ChangeNotifier {
         final data = jsonDecode(raw) as Map<String, dynamic>;
         _customWorkshops.add(Workshop.fromJson(data));
       } catch (_) {/* Ignore an invalid entry. */}
+    }
+
+    final reviewsRaw = preferences.getString(_reviewsKey);
+    if (reviewsRaw != null) {
+      try {
+        final decoded = jsonDecode(reviewsRaw) as Map<String, dynamic>;
+        for (final entry in decoded.entries) {
+          final listJson = entry.value as List<dynamic>;
+          _reviewsByWorkshop[entry.key] = listJson
+              .map((j) => WorkshopReview.fromJson(j as Map<String, dynamic>))
+              .toList();
+        }
+      } catch (_) {/* Ignore corrupted reviews cache */}
     }
 
     // Garante que oficinas favoritas customizadas ou parceiras estejam disponíveis
@@ -460,6 +476,93 @@ class WorkshopProvider extends ChangeNotifier {
     }
   }
 
+  List<WorkshopReview> getReviewsForWorkshop(String workshopId) {
+    return _reviewsByWorkshop[workshopId] ?? const [];
+  }
+
+  Future<void> addReview({
+    required String workshopId,
+    required WorkshopReview review,
+  }) async {
+    final list = List<WorkshopReview>.from(_reviewsByWorkshop[workshopId] ?? []);
+    list.insert(0, review);
+    _reviewsByWorkshop[workshopId] = list;
+
+    final totalScore = list.fold<double>(0, (acc, r) => acc + r.rating);
+    final avgRating = double.parse((totalScore / list.length).toStringAsFixed(1));
+    final ratingCount = list.length;
+
+    // Atualiza em _workshops se presente
+    final osmIndex = _workshops.indexWhere((w) => w.id == workshopId);
+    if (osmIndex != -1) {
+      _workshops[osmIndex] = _workshops[osmIndex].copyWith(
+        reviews: list,
+        rating: avgRating,
+        ratingCount: ratingCount,
+      );
+    }
+
+    // Atualiza em _customWorkshops se presente
+    final customIndex = _customWorkshops.indexWhere((w) => w.id == workshopId);
+    if (customIndex != -1) {
+      _customWorkshops[customIndex] = _customWorkshops[customIndex].copyWith(
+        reviews: list,
+        rating: avgRating,
+        ratingCount: ratingCount,
+      );
+      final preferences = await SharedPreferences.getInstance();
+      final jsonList =
+          _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+      await preferences.setStringList(_customWorkshopsKey, jsonList);
+    }
+
+    // Atualiza em _savedWorkshops
+    if (_savedWorkshops.containsKey(workshopId)) {
+      _savedWorkshops[workshopId] = _savedWorkshops[workshopId]!.copyWith(
+        reviews: list,
+        rating: avgRating,
+        ratingCount: ratingCount,
+      );
+    }
+
+    if (_selectedWorkshop?.id == workshopId) {
+      _selectedWorkshop = _selectedWorkshop!.copyWith(
+        reviews: list,
+        rating: avgRating,
+        ratingCount: ratingCount,
+      );
+    }
+
+    // Salva no SharedPreferences
+    final preferences = await SharedPreferences.getInstance();
+    final serialized = <String, dynamic>{};
+    _reviewsByWorkshop.forEach((key, revs) {
+      serialized[key] = revs.map((r) => r.toJson()).toList();
+    });
+    await preferences.setString(_reviewsKey, jsonEncode(serialized));
+
+    if (!_disposed) notifyListeners();
+
+    // Sincroniza em background com Cloud Firestore
+    try {
+      await FirebaseFirestore.instance
+          .collection('workshop_reviews')
+          .doc(workshopId)
+          .collection('reviews')
+          .add(review.toJson());
+
+      await FirebaseFirestore.instance
+          .collection('workshops')
+          .doc(workshopId)
+          .set({
+        'rating': avgRating,
+        'ratingCount': ratingCount,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Firestore addReview sync: $e');
+    }
+  }
+
   List<Workshop> getFilteredWorkshops(Vehicle? activeVehicle) {
     // Unifica oficinas cadastradas personalizadas (no topo com destaque) e oficinas do OpenStreetMap
     final matchesAutobahn = _searchQuery.toLowerCase().contains('autobahn');
@@ -470,7 +573,20 @@ class WorkshopProvider extends ChangeNotifier {
       ..._workshops.where((osm) => !_customWorkshops.any((c) =>
           c.id == osm.id ||
           c.name.toLowerCase().trim() == osm.name.toLowerCase().trim())),
-    ];
+    ].map((w) {
+      final reviews = _reviewsByWorkshop[w.id];
+      if (reviews != null && reviews.isNotEmpty) {
+        final totalScore = reviews.fold<double>(0, (acc, r) => acc + r.rating);
+        final avgRating =
+            double.parse((totalScore / reviews.length).toStringAsFixed(1));
+        return w.copyWith(
+          reviews: reviews,
+          rating: avgRating,
+          ratingCount: reviews.length,
+        );
+      }
+      return w;
+    }).toList();
 
     return allList.where((w) {
       // Filtro de categoria

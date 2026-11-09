@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/vehicle.dart';
 import '../models/workshop.dart';
 import '../providers/workshop_provider.dart';
-import '../screens/workshop_detail_screen.dart';
 import '../theme/app_theme.dart';
+import 'workshop_detail_sheet.dart';
 import 'workshop_image_helper.dart';
 
 class WorkshopCard extends StatelessWidget {
@@ -38,14 +38,7 @@ class WorkshopCard extends StatelessWidget {
       color: isDark ? AppColors.darkSurface : Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => WorkshopDetailScreen(workshop: workshop),
-            ),
-          );
-        },
+        onTap: () => WorkshopDetailSheet.show(context, workshop),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -218,7 +211,7 @@ class WorkshopCard extends StatelessWidget {
                           const Icon(Icons.near_me_rounded, size: 12, color: AppColors.muted),
                           const SizedBox(width: 3),
                           Text(
-                            '${workshop.distanceKm} km',
+                            workshop.formattedDistance,
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

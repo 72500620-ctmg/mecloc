@@ -94,6 +94,7 @@ class Workshop {
     this.priceLevel = 'R\$ \$\$',
     this.distanceKm,
     this.imageUrl,
+    this.imageUrls = const [],
     this.reviews = const [],
     this.isCustomRegistered = false,
     this.whatsappPhone,
@@ -121,11 +122,36 @@ class Workshop {
   final String priceLevel;
   final double? distanceKm;
   final String? imageUrl;
+  final List<String> imageUrls;
   final List<WorkshopReview> reviews;
   final bool isCustomRegistered;
   final String? whatsappPhone;
   final String? description;
   final String? ownerId;
+
+  List<String> get allImageUrls {
+    final list = <String>[];
+    for (final u in imageUrls) {
+      if (u.trim().isNotEmpty && !list.contains(u.trim())) {
+        list.add(u.trim());
+      }
+    }
+    if (imageUrl != null &&
+        imageUrl!.trim().isNotEmpty &&
+        !list.contains(imageUrl!.trim())) {
+      list.insert(0, imageUrl!.trim());
+    }
+    return list;
+  }
+
+  String get formattedDistance {
+    if (distanceKm == null) return '';
+    if (distanceKm! < 1.0) {
+      final meters = (distanceKm! * 1000).round();
+      return '$meters m';
+    }
+    return '${distanceKm!.toStringAsFixed(1)} km';
+  }
 
   IconData get iconData {
     switch (categoryType) {
@@ -287,6 +313,7 @@ class Workshop {
     String? priceLevel,
     double? distanceKm,
     String? imageUrl,
+    List<String>? imageUrls,
     List<WorkshopReview>? reviews,
     bool? isCustomRegistered,
     String? whatsappPhone,
@@ -314,6 +341,7 @@ class Workshop {
       priceLevel: priceLevel ?? this.priceLevel,
       distanceKm: distanceKm ?? this.distanceKm,
       imageUrl: imageUrl ?? this.imageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
       reviews: reviews ?? this.reviews,
       isCustomRegistered: isCustomRegistered ?? this.isCustomRegistered,
       whatsappPhone: whatsappPhone ?? this.whatsappPhone,
@@ -342,6 +370,8 @@ class Workshop {
         'priceLevel': priceLevel,
         'distanceKm': distanceKm,
         'imageUrl': imageUrl,
+        'imageUrls': imageUrls,
+        'reviews': reviews.map((r) => r.toJson()).toList(),
         'isCustomRegistered': isCustomRegistered,
         'whatsappPhone': whatsappPhone,
         'description': description,
@@ -376,6 +406,11 @@ class Workshop {
       priceLevel: json['priceLevel'] as String? ?? 'R\$ \$\$',
       distanceKm: _number(json['distanceKm']),
       imageUrl: json['imageUrl'] as String?,
+      imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? const [],
+      reviews: (json['reviews'] as List<dynamic>?)
+              ?.map((r) => WorkshopReview.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          const [],
       isCustomRegistered: json['isCustomRegistered'] as bool? ?? true,
       whatsappPhone: json['whatsappPhone'] as String?,
       description: json['description'] as String?,
@@ -442,6 +477,7 @@ class WorkshopReview {
     required this.comment,
     required this.date,
     this.carModel,
+    this.authorId,
   });
 
   final String authorName;
@@ -449,4 +485,23 @@ class WorkshopReview {
   final String comment;
   final String date;
   final String? carModel;
+  final String? authorId;
+
+  Map<String, dynamic> toJson() => {
+        'authorName': authorName,
+        'rating': rating,
+        'comment': comment,
+        'date': date,
+        'carModel': carModel,
+        'authorId': authorId,
+      };
+
+  factory WorkshopReview.fromJson(Map<String, dynamic> json) => WorkshopReview(
+        authorName: json['authorName'] as String? ?? 'Motorista',
+        rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
+        comment: json['comment'] as String? ?? '',
+        date: json['date'] as String? ?? '',
+        carModel: json['carModel'] as String?,
+        authorId: json['authorId'] as String?,
+      );
 }

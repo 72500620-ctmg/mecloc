@@ -5,9 +5,9 @@ import '../models/workshop.dart';
 import '../providers/auth_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/workshop_detail_sheet.dart';
 import '../widgets/workshop_image_helper.dart';
 import 'auth/login_screen.dart';
-import 'workshop_detail_screen.dart';
 import 'workshop_registration_screen.dart';
 
 class MyWorkshopsScreen extends StatelessWidget {
@@ -155,14 +155,7 @@ class MyWorkshopsScreen extends StatelessWidget {
                   color: isDark ? AppColors.darkSurface : Colors.white,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => WorkshopDetailScreen(workshop: w),
-                        ),
-                      );
-                    },
+                    onTap: () => WorkshopDetailSheet.show(context, w),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(

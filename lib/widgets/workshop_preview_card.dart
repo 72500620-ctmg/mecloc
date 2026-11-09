@@ -90,7 +90,7 @@ class WorkshopPreviewCard extends StatelessWidget {
                         if (workshop.distanceKm != null) ...[
                           const Text(' • ', style: TextStyle(color: AppColors.muted)),
                           Text(
-                            '${workshop.distanceKm} km',
+                            workshop.formattedDistance,
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,

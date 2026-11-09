@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../models/workshop.dart';
 import '../providers/workshop_provider.dart';
-import '../screens/workshop_detail_screen.dart';
 import '../theme/app_theme.dart';
 import 'whatsapp_quote_modal.dart';
+import 'workshop_detail_sheet.dart';
 
 class WorkshopListTile extends StatelessWidget {
   const WorkshopListTile({super.key, required this.workshop});
@@ -19,12 +19,7 @@ class WorkshopListTile extends StatelessWidget {
     final isFavorite = provider.isFavorite(workshop.id);
 
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => WorkshopDetailScreen(workshop: workshop),
-        ),
-      ),
+      onTap: () => WorkshopDetailSheet.show(context, workshop),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -122,7 +117,7 @@ class WorkshopListTile extends StatelessWidget {
                             style: TextStyle(
                                 fontSize: 12, color: AppColors.slateMuted)),
                         Text(
-                          '${workshop.distanceKm} km',
+                          workshop.formattedDistance,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

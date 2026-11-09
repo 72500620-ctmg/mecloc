@@ -13,13 +13,13 @@ import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_notice.dart';
 import '../widgets/emergency_modal.dart';
+import '../widgets/workshop_detail_sheet.dart';
 import '../widgets/workshop_list_tile.dart';
 import '../widgets/workshop_pin_marker.dart';
 import 'auth/login_screen.dart';
 import 'main_shell.dart';
 import 'profile_screen.dart';
 import 'quotes_screen.dart';
-import 'workshop_detail_screen.dart';
 import 'workshop_registration_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -196,12 +196,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               rotate: true,
               child: WorkshopPinMarker(
                 workshop: w,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => WorkshopDetailScreen(workshop: w),
-                  ),
-                ),
+                onTap: () => WorkshopDetailSheet.show(context, w),
               ),
             ))
         .toList();
