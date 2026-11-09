@@ -40,7 +40,7 @@ void main() {
               'id': 123,
               'lat': -19.92,
               'lon': -43.94,
-              'tags': {'name': 'Oficina Central'},
+              'tags': {'name': 'Oficina Central', 'shop': 'car_repair'},
             },
           ],
         }),
@@ -74,7 +74,7 @@ void main() {
               'id': 321,
               'lat': -22.90,
               'lon': -47.06,
-              'tags': {'name': 'Oficina Alternativa'},
+              'tags': {'name': 'Oficina Alternativa', 'shop': 'car_repair'},
             },
           ],
         }),
@@ -90,7 +90,6 @@ void main() {
 
     expect(hosts, [
       'overpass-api.de',
-      'lz4.overpass-api.de',
       'overpass.private.coffee',
     ]);
     expect(workshops.single.name, 'Oficina Alternativa');

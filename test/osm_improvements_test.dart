@@ -91,8 +91,9 @@ void main() {
         ),
       );
 
-      expect(sentQuery, contains('nwr(-19.935,-43.97,-19.92,-43.95)["shop"="tyres"]'));
-      expect(sentQuery, contains('out center tags 400;'));
+      expect(sentQuery, contains('["shop"="tyres"]'));
+      expect(sentQuery, isNot(contains('around:')));
+      expect(sentQuery, contains('out center tags;'));
       expect(results, hasLength(1));
       expect(results.first.name, 'MINAS PNEUS');
       expect(results.first.categoryType, WorkshopCategory.tireShop);

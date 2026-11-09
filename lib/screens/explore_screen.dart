@@ -16,6 +16,8 @@ import '../widgets/app_notice.dart';
 import '../widgets/emergency_modal.dart';
 import '../widgets/workshop_list_tile.dart';
 import '../widgets/workshop_pin_marker.dart';
+import '../services/map_search_policy.dart';
+import '../widgets/search_status.dart';
 import 'auth/login_screen.dart';
 import 'main_shell.dart';
 import 'profile_screen.dart';
@@ -33,10 +35,7 @@ class ExploreScreen extends StatefulWidget {
 class _ExploreScreenState extends State<ExploreScreen> {
   final _cityController = TextEditingController();
   final _mapController = MapController();
-  LatLng? _lastCentered;
-  bool _usingDeviceLocation = true;
-  static const _initialCenter = LatLng(-15.7939, -47.8828);
-  static const _distance = Distance();
+  static const _initialCenter = LatLng(-14.235, -51.9253);
 
   // Constantes de layout do Design System
   static const double _kMapFloatingPadding = 16.0;
@@ -50,11 +49,46 @@ class _ExploreScreenState extends State<ExploreScreen> {
   // Busca automática inteligente ao mover o mapa
   Timer? _autoSearchDebounce;
   LatLng? _lastAutoSearchedCenter;
-  double _lastZoom = 13.0;
+  double? _lastAutoSearchZoom;
+  bool _zoomTooWide = false;
+  int _mapSearchVersion = 0;
   bool _showSearchAreaButton = false;
+  WorkshopProvider? _workshopProvider;
+  bool _mapReady = false;
+  bool _followDeviceLocation = true;
+  LatLng? _lastDeviceCenter;
+  bool _cameraUpdateScheduled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.read<WorkshopProvider>();
+    if (identical(provider, _workshopProvider)) return;
+    _workshopProvider?.removeListener(_onLocationChanged);
+    _workshopProvider = provider;
+    provider.addListener(_onLocationChanged);
+    _onLocationChanged();
+  }
+
+  void _onLocationChanged() {
+    if (!_mapReady || !_followDeviceLocation || _cameraUpdateScheduled) return;
+    final point = _workshopProvider?.deviceLocation;
+    if (point == null || point == _lastDeviceCenter) return;
+    _cameraUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _cameraUpdateScheduled = false;
+      if (!mounted || !_mapReady || !_followDeviceLocation) return;
+      final latest = _workshopProvider?.deviceLocation;
+      if (latest == null || latest == _lastDeviceCenter) return;
+      _lastDeviceCenter = latest;
+      _mapController.move(latest, 14.5);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
 
   @override
   void dispose() {
+    _workshopProvider?.removeListener(_onLocationChanged);
     _autoSearchDebounce?.cancel();
     _cityController.dispose();
     _mapController.dispose();
@@ -62,99 +96,107 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _onMapCameraMoved(LatLng newCenter, double newZoom) {
-    _lastZoom = newZoom;
-
+    _mapSearchVersion++;
+    _followDeviceLocation = false;
+    _autoSearchDebounce?.cancel();
+    final provider = context.read<WorkshopProvider>();
+    provider.cancelAutomaticSearch();
+    if (_zoomTooWide != (newZoom < MapSearchPolicy.minimumZoom)) {
+      setState(() => _zoomTooWide = newZoom < MapSearchPolicy.minimumZoom);
+    }
     final searchCenter = context.read<WorkshopProvider>().searchCenter;
     final reference = _lastAutoSearchedCenter ?? searchCenter;
-    if (reference != null) {
-      final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
-      if (dist > 350 && !_showSearchAreaButton) {
-        setState(() => _showSearchAreaButton = true);
-      }
-      // Se mover mais de 1.500m, prepara busca automática após debounce confortável de 1.2s
-      if (dist >= 1500) {
-        _autoSearchDebounce?.cancel();
-        _autoSearchDebounce =
-            Timer(const Duration(milliseconds: 1200), () async {
-          if (!mounted) return;
-          _triggerSearchInCurrentArea();
-        });
-      }
-    } else {
-      if (!_showSearchAreaButton) {
-        setState(() => _showSearchAreaButton = true);
-      }
+    final b = _mapController.camera.visibleBounds;
+    final shouldSearch = MapSearchPolicy.shouldSearch(newCenter, newZoom,
+            (south: b.south, west: b.west, north: b.north, east: b.east),
+            previousCenter: reference, previousZoom: _lastAutoSearchZoom) ||
+        (provider.automaticRetryAt != null &&
+            newZoom >= MapSearchPolicy.minimumZoom);
+    if (shouldSearch) {
+      if (!_showSearchAreaButton) setState(() => _showSearchAreaButton = true);
+      _autoSearchDebounce = Timer(MapSearchPolicy.debounce, () {
+        if (mounted) _triggerSearchInCurrentArea(automatic: true);
+      });
     }
   }
 
-  void _triggerSearchInCurrentArea() {
+  Future<void> _triggerSearchInCurrentArea({bool automatic = false}) async {
+    final version = ++_mapSearchVersion;
+    _autoSearchDebounce?.cancel();
+    _followDeviceLocation = false;
     if (_showSearchAreaButton) {
       setState(() => _showSearchAreaButton = false);
     }
     final center = _mapController.camera.center;
     final zoom = _mapController.camera.zoom;
     final bounds = _mapController.camera.visibleBounds;
+    if (automatic && zoom < MapSearchPolicy.minimumZoom) return;
 
     _lastAutoSearchedCenter = center;
+    _lastAutoSearchZoom = zoom;
 
     // Ajusta raio conforme nível de zoom para consulta rápida e focada
     final radiusMeters = zoom >= 15 ? 2000 : (zoom >= 13 ? 4000 : 8000);
 
-    context.read<WorkshopProvider>().searchWorkshops(
-          customCenter: center,
-          radiusMeters: radiusMeters,
-          boundingBox: (
-            south: bounds.south,
-            west: bounds.west,
-            north: bounds.north,
-            east: bounds.east,
-          ),
-        );
+    final provider = context.read<WorkshopProvider>();
+    await provider.searchWorkshops(
+      customCenter: center,
+      automatic: automatic,
+      radiusMeters: radiusMeters,
+      boundingBox: (
+        south: bounds.south,
+        west: bounds.west,
+        north: bounds.north,
+        east: bounds.east,
+      ),
+    );
+    if (!mounted ||
+        version != _mapSearchVersion ||
+        !automatic ||
+        provider.automaticRetryAt == null) {
+      return;
+    }
+    final delay = provider.automaticRetryAt!.difference(DateTime.now());
+    _autoSearchDebounce =
+        Timer(delay > Duration.zero ? delay : Duration.zero, () {
+      if (mounted) _triggerSearchInCurrentArea(automatic: true);
+    });
   }
 
   Future<void> _performSearch() async {
+    final version = ++_mapSearchVersion;
+    _autoSearchDebounce?.cancel();
     final query = _cityController.text.trim();
     if (query.isEmpty) {
       _searchNearby();
       return;
     }
 
-    _usingDeviceLocation = false;
+    _followDeviceLocation = false;
+
     FocusManager.instance.primaryFocus?.unfocus();
 
     final provider = context.read<WorkshopProvider>();
     provider.setSearchQuery(query);
 
-    // 1. Se já existem oficinas correspondentes carregadas na memória,
-    // apenas centraliza na primeira correspondência no mapa e destaca.
-    // Isso evita refazer requisições desnecessárias, buscar cidades distantes
-    // ou substituir os resultados locais que o usuário já estava vendo ao digitar.
-    final localMatches = provider.getFilteredWorkshops(null);
-    if (localMatches.isNotEmpty) {
-      final firstWithCoords = localMatches.firstWhere(
-        (w) => w.latitude != null && w.longitude != null,
-        orElse: () => localMatches.first,
-      );
-      if (firstWithCoords.latitude != null && firstWithCoords.longitude != null) {
-        final target = LatLng(firstWithCoords.latitude!, firstWithCoords.longitude!);
-        _mapController.move(target, 15.0);
-        provider.selectWorkshop(firstWithCoords);
-      }
-      return;
-    }
-
-    // 2. Se não encontrou nenhuma oficina correspondente na memória local,
-    // realiza a busca remota inteligente (por nome de oficina na região, ou cidade/bairro).
+    // Correspondências locais não encerram a descoberta dos demais resultados.
     await provider.searchWorkshops(query: query);
 
-    if (mounted && provider.searchCenter != null) {
-      _mapController.move(provider.searchCenter!, 14.0);
+    if (mounted &&
+        version == _mapSearchVersion &&
+        provider.searchCenter != null) {
+      final selected = provider.selectedWorkshop;
+      final target = selected?.latitude != null && selected?.longitude != null
+          ? LatLng(selected!.latitude!, selected.longitude!)
+          : provider.searchCenter!;
+      _mapController.move(target, 14.0);
     }
   }
 
   Future<void> _searchNearby() async {
+    _autoSearchDebounce?.cancel();
+    _followDeviceLocation = true;
     _cityController.clear();
-    _usingDeviceLocation = true;
     FocusManager.instance.primaryFocus?.unfocus();
     final provider = context.read<WorkshopProvider>();
     // Se a localização do dispositivo já estiver disponível, move a câmera imediatamente sem esperar
@@ -162,13 +204,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _mapController.move(provider.deviceLocation!, 14.5);
     }
     await provider.searchWorkshops();
-    if (mounted && provider.deviceLocation != null) {
+    if (mounted && _followDeviceLocation && provider.deviceLocation != null) {
       _mapController.move(provider.deviceLocation!, 14.5);
     }
   }
 
-  Future<void> _retrySearch() =>
-      _cityController.text.trim().isEmpty ? _searchNearby() : _performSearch();
+  Future<void> _retrySearch() => context.read<WorkshopProvider>().retrySearch();
 
   void _openQuotes() {
     Navigator.of(context).push(
@@ -221,7 +262,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final authProvider = context.watch<AuthProvider>();
     final vehicle = context.watch<VehicleProvider>().activeVehicle;
     final results = provider.getFilteredWorkshops(vehicle);
-    final center = provider.deviceLocation ?? provider.searchCenter ?? _initialCenter;
+    final center =
+        provider.deviceLocation ?? provider.searchCenter ?? _initialCenter;
+    final hasKnownCenter =
+        provider.deviceLocation != null || provider.searchCenter != null;
 
     final isSearching = _cityController.text.trim().isNotEmpty ||
         provider.selectedCategory != null ||
@@ -254,7 +298,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             mapController: _mapController,
             options: MapOptions(
               initialCenter: center,
-              initialZoom: 13,
+              initialZoom: hasKnownCenter ? 13 : 3,
               onPositionChanged: (camera, hasGesture) {
                 if ((_mapRotation - camera.rotation).abs() > 0.5) {
                   setState(() {
@@ -266,8 +310,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 }
               },
               onMapReady: () {
-                final current = provider.deviceLocation ?? provider.searchCenter;
+                _mapReady = true;
+                final current =
+                    provider.deviceLocation ?? provider.searchCenter;
                 if (current != null) _mapController.move(current, 13);
+                _onLocationChanged();
               },
             ),
             children: [
@@ -280,13 +327,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.mecloc',
                 maxZoom: 20,
-                tileBuilder: (_stadiaApiKey.isEmpty && isDark) ? darkModeTileBuilder : null,
+                tileBuilder: (_stadiaApiKey.isEmpty && isDark)
+                    ? darkModeTileBuilder
+                    : null,
               ),
-              CurrentLocationLayer(
-                style: const LocationMarkerStyle(
+              const CurrentLocationLayer(
+                style: LocationMarkerStyle(
                   marker: DefaultLocationMarker(
                     color: AppColors.cobaltPrimary,
-                    child: Icon(Icons.navigation, color: Colors.white, size: 12),
+                    child:
+                        Icon(Icons.navigation, color: Colors.white, size: 12),
                   ),
                   markerSize: Size(26, 26),
                   accuracyCircleColor: Color(0x251D4ED8),
@@ -310,6 +360,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ]),
             ],
           ),
+
+          if (!hasKnownCenter)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Theme.of(context).colorScheme.surface,
+                child: Center(
+                    child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    if (provider.isLoading) const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                        provider.isLoading
+                            ? 'Obtendo sua localização…'
+                            : 'Use sua localização ou busque uma cidade para explorar.',
+                        textAlign: TextAlign.center),
+                  ]),
+                )),
+              ),
+            ),
 
           // 2. BARRA DE PESQUISA FLUTUANTE COM LOADING CONJUGADO
           Positioned(
@@ -362,13 +432,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 icon: const Icon(Icons.clear_rounded, size: 20),
                                 onPressed: () {
                                   _cityController.clear();
-                                  context.read<WorkshopProvider>().setSearchQuery('');
+                                  context
+                                      .read<WorkshopProvider>()
+                                      .setSearchQuery('');
                                   setState(() {});
                                 },
                               ),
                             Consumer<AuthProvider?>(
                               builder: (context, auth, _) {
-                                final isAuthenticated = auth?.isAuthenticated ?? false;
+                                final isAuthenticated =
+                                    auth?.isAuthenticated ?? false;
                                 final photoUrl = auth?.photoUrl;
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 6),
@@ -379,7 +452,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute<void>(
-                                            builder: (_) => const ProfileScreen(),
+                                            builder: (_) =>
+                                                const ProfileScreen(),
                                           ),
                                         );
                                       } else {
@@ -404,7 +478,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                           ? Icon(
                                               isAuthenticated
                                                   ? Icons.person_rounded
-                                                  : Icons.person_outline_rounded,
+                                                  : Icons
+                                                      .person_outline_rounded,
                                               size: 20,
                                               color: Theme.of(context)
                                                   .colorScheme
@@ -452,12 +527,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
               child: Material(
                 elevation: 4,
                 color: Theme.of(context).colorScheme.surface,
-                shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
-                borderRadius: BorderRadius.circular(20),
+                shadowColor:
+                    Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: BorderSide(
-                    color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                    color:
+                        isDark ? AppColors.darkBorder : AppColors.slateBorder,
                     width: 1,
                   ),
                 ),
@@ -465,11 +541,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   borderRadius: BorderRadius.circular(20),
                   onTap: _triggerSearchInCurrentArea,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.refresh_rounded, size: 16, color: AppColors.cobaltPrimary),
+                        const Icon(Icons.refresh_rounded,
+                            size: 16, color: AppColors.cobaltPrimary),
                         const SizedBox(width: 6),
                         Text(
                           'Buscar nesta área',
@@ -502,7 +580,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.white, size: 16),
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.white, size: 16),
                       SizedBox(width: 5),
                       Text(
                         'SOS 24h',
@@ -539,7 +618,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 snapSizes: const [0.16, 0.45, 0.6, 0.88],
                 builder: (context, scrollController) => Material(
                   elevation: 6,
-                  shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
+                  shadowColor:
+                      Colors.black.withValues(alpha: isDark ? 0.4 : 0.15),
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(AppRadii.sheet)),
@@ -563,9 +643,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                       ),
 
-                      if (provider.errorMessage != null)
+                      if (!provider.isLoading &&
+                          provider.errorMessage != null &&
+                          results.isEmpty &&
+                          !provider.lastSearchAutomatic)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           child: AppNotice(
                             title: 'Não foi possível concluir a busca',
                             message: provider.errorMessage!,
@@ -576,12 +660,39 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             ),
                           ),
                         ),
+                      if (provider.isLoading ||
+                          provider.searchNotice != null ||
+                          _zoomTooWide ||
+                          provider.automaticRetryAt != null ||
+                          (provider.errorMessage != null &&
+                              (results.isNotEmpty ||
+                                  provider.lastSearchAutomatic)))
+                        SearchStatus(
+                          label: provider.isLoading
+                              ? 'Buscando nesta região…'
+                              : _zoomTooWide
+                                  ? 'Aproxime o mapa para buscar nesta região'
+                                  : provider.automaticRetryAt != null
+                                      ? 'Atualização em instantes'
+                                      : provider.resultsStale
+                                          ? 'Dados salvos · atualização indisponível'
+                                          : provider.searchNotice != null
+                                              ? 'Cobertura limitada'
+                                              : 'Atualização indisponível',
+                          message: provider.searchNotice ??
+                              provider.errorMessage ??
+                              'A busca é atualizada após o mapa parar.',
+                          busy: provider.isLoading,
+                          onRefresh: _retrySearch,
+                        ),
 
                       // RENDERIZAÇÃO CONDICIONAL: MODO BUSCA vs DISCOVERY HUB
                       if (isSearching)
-                        _buildSearchResultsView(context, isDark, provider, results)
+                        _buildSearchResultsView(
+                            context, isDark, provider, results)
                       else
-                        _buildDiscoveryHubView(context, isDark, authProvider, vehicle, results),
+                        _buildDiscoveryHubView(
+                            context, isDark, authProvider, vehicle, results),
                     ],
                   ),
                 ),
@@ -593,7 +704,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           if (_mapRotation.abs() > 2.0)
             Positioned(
               right: _kMapFloatingPadding,
-              bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) * _sheetExtent) + 68,
+              bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) *
+                      _sheetExtent) +
+                  68,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 150),
                 opacity: _sheetExtent > 0.78 ? 0.0 : 1.0,
@@ -601,7 +714,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ignoring: _sheetExtent > 0.78,
                   child: Material(
                     elevation: 4,
-                    shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                    shadowColor:
+                        Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
                     color: Theme.of(context).colorScheme.surface,
                     shape: const CircleBorder(),
                     clipBehavior: Clip.antiAlias,
@@ -618,7 +732,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.slateBorder,
                               width: 1.2,
                             ),
                           ),
@@ -641,7 +757,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           // 5. BOTÃO FLUTUANTE MINHA LOCALIZAÇÃO NO CANTO INFERIOR DIREITO DO MAPA
           Positioned(
             right: _kMapFloatingPadding,
-            bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) * _sheetExtent) + 12,
+            bottom: ((MediaQuery.sizeOf(context).height - (topInset + 76)) *
+                    _sheetExtent) +
+                12,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
               opacity: _sheetExtent > 0.78 ? 0.0 : 1.0,
@@ -649,7 +767,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ignoring: _sheetExtent > 0.78,
                 child: Material(
                   elevation: 4,
-                  shadowColor: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                  shadowColor:
+                      Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
                   color: Theme.of(context).colorScheme.surface,
                   shape: const CircleBorder(),
                   clipBehavior: Clip.antiAlias,
@@ -663,7 +782,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.slateBorder,
                             width: 1.2,
                           ),
                         ),
@@ -692,9 +813,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     dynamic vehicle,
     List<Workshop> results,
   ) {
-    final displayName = authProvider.isAuthenticated
-        ? authProvider.displayName
-        : 'Motorista';
+    final displayName =
+        authProvider.isAuthenticated ? authProvider.displayName : 'Motorista';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -733,12 +853,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   borderRadius: BorderRadius.circular(20),
                   onTap: () => MainShellNavigation.switchToTab(2),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -948,7 +1075,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
           child: OutlinedButton.icon(
             onPressed: _openWorkshopRegistration,
             icon: const Icon(Icons.add_business_rounded, size: 18),
-            label: const Text('É dono de oficina? Cadastre seu estabelecimento'),
+            label:
+                const Text('É dono de oficina? Cadastre seu estabelecimento'),
           ),
         ),
       ],
@@ -1042,7 +1170,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ? 'Nenhuma oficina encontrada para "${provider.searchQuery}" nesta região.'
                         : 'Nenhuma oficina encontrada nesta categoria ou região.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 6),
                   const Text(

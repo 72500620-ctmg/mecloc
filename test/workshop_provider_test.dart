@@ -16,6 +16,9 @@ class FakeSearch extends OpenStreetMapService {
     LatLng center, {
     int? radiusMeters,
     ({double south, double west, double north, double east})? boundingBox,
+    bool automatic = false,
+    bool forceRefresh = false,
+    void Function(List<Workshop>)? onProgress,
   }) =>
       (requests[center.latitude.toInt()] = Completer<List<Workshop>>()).future;
 }

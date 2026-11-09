@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
@@ -6,8 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/vehicle.dart';
 import '../models/workshop.dart';
+import '../models/workshop_search_result.dart';
+import '../utils/search_text.dart';
 import '../services/location_service.dart';
 import '../services/open_street_map_service.dart';
+import '../services/workshop_discovery_service.dart';
 
 class WorkshopProvider extends ChangeNotifier {
   WorkshopProvider({
@@ -35,8 +39,19 @@ class WorkshopProvider extends ChangeNotifier {
     category: 'Oficina mecânica',
     categoryType: WorkshopCategory.mechanic,
     isCustomRegistered: true,
-    supportedBrands: ['Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 'Todas as marcas'],
-    specialties: ['Injeção Eletrônica', 'Câmbio Automático', 'Motor', 'Freios e Suspensão'],
+    supportedBrands: [
+      'Volkswagen',
+      'Audi',
+      'BMW',
+      'Mercedes-Benz',
+      'Todas as marcas'
+    ],
+    specialties: [
+      'Injeção Eletrônica',
+      'Câmbio Automático',
+      'Motor',
+      'Freios e Suspensão'
+    ],
     description:
         'Oficina especializada em mecânica geral, diagnóstico eletrônico computadorizado e manutenção preventiva.',
   );
@@ -45,7 +60,6 @@ class WorkshopProvider extends ChangeNotifier {
   final LocationService _locationService;
 
   List<Workshop> _workshops = [];
-  final Map<String, Workshop> _spatialWorkshopsCache = {};
   List<Workshop> _customWorkshops = [];
   final Map<String, Workshop> _savedWorkshops = {};
   int _searchGeneration = 0;
@@ -55,6 +69,13 @@ class WorkshopProvider extends ChangeNotifier {
   List<String> _recentSearches = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String? _searchNotice;
+  bool _resultsStale = false;
+  DateTime? _automaticRetryAt;
+  bool _lastSearchAutomatic = false;
+  Future<void> Function()? _retryAction;
+  int _activeRadiusMeters = 8000;
+  ({double south, double west, double north, double east})? _activeBounds;
   bool _hasSearched = false;
   LatLng? _searchCenter;
   LatLng? _deviceLocation;
@@ -67,6 +88,19 @@ class WorkshopProvider extends ChangeNotifier {
   List<Workshop> get workshops => List.unmodifiable(_workshops);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get searchNotice => _searchNotice;
+  bool get resultsStale => _resultsStale;
+  DateTime? get automaticRetryAt => _automaticRetryAt;
+  bool get lastSearchAutomatic => _lastSearchAutomatic;
+  void cancelAutomaticSearch() {
+    if (!_isLoading || !_lastSearchAutomatic) return;
+    _searchGeneration++;
+    _openStreetMapService.cancelDiscoverySearches();
+    _isLoading = false;
+    _pendingSearch = null;
+    notifyListeners();
+  }
+
   bool get hasSearched => _hasSearched;
   LatLng? get searchCenter => _searchCenter;
   LatLng? get deviceLocation => _deviceLocation;
@@ -91,6 +125,7 @@ class WorkshopProvider extends ChangeNotifier {
     }
     return list;
   }
+
   List<Workshop> get customWorkshops => List.unmodifiable(_customWorkshops);
 
   bool isFavorite(String id) => _favoriteIds.contains(id);
@@ -115,7 +150,8 @@ class WorkshopProvider extends ChangeNotifier {
       } catch (_) {/* Ignore an invalid saved entry. */}
     }
 
-    final customRaw = preferences.getStringList(_customWorkshopsKey) ?? <String>[];
+    final customRaw =
+        preferences.getStringList(_customWorkshopsKey) ?? <String>[];
     _customWorkshops = [];
     for (final raw in customRaw) {
       try {
@@ -135,30 +171,6 @@ class WorkshopProvider extends ChangeNotifier {
       }
     }
 
-    // Tenta sincronizar com o Cloud Firestore da nuvem
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('workshops').get();
-      if (snapshot.docs.isNotEmpty) {
-        final cloudList = <Workshop>[];
-        for (final doc in snapshot.docs) {
-          try {
-            final data = doc.data();
-            data['id'] = doc.id;
-            cloudList.add(Workshop.fromJson(data));
-          } catch (_) {}
-        }
-        if (cloudList.isNotEmpty) {
-          _customWorkshops = cloudList;
-          final jsonList =
-              _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
-          await preferences.setStringList(_customWorkshopsKey, jsonList);
-        }
-      }
-    } catch (e) {
-      debugPrint('Firestore fetch workshops fallback: $e');
-    }
-
     // Carrega instantaneamente a última localização conhecida do usuário (elimina o salto de Brasília)
     final savedLat = preferences.getDouble(_lastKnownLatKey);
     final savedLng = preferences.getDouble(_lastKnownLngKey);
@@ -169,8 +181,34 @@ class WorkshopProvider extends ChangeNotifier {
     }
 
     if (!_disposed) notifyListeners();
+    unawaited(_syncCloudWorkshops());
     if (searchOnStart && !_disposed && !_hasSearched) {
       await searchWorkshops();
+    }
+  }
+
+  Future<void> _syncCloudWorkshops() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('workshops')
+          .get()
+          .timeout(const Duration(seconds: 8));
+      if (_disposed || snapshot.docs.isEmpty) return;
+      final cloudList = <Workshop>[];
+      for (final doc in snapshot.docs) {
+        try {
+          cloudList.add(Workshop.fromJson({...doc.data(), 'id': doc.id}));
+        } catch (_) {/* Ignora somente o cadastro inválido. */}
+      }
+      if (cloudList.isEmpty) return;
+      _customWorkshops = cloudList;
+      notifyListeners();
+      final preferences = await SharedPreferences.getInstance();
+      if (_disposed) return;
+      await preferences.setStringList(_customWorkshopsKey,
+          cloudList.map((w) => jsonEncode(w.toJson())).toList());
+    } catch (error) {
+      debugPrint('Firestore fetch workshops fallback: $error');
     }
   }
 
@@ -180,213 +218,226 @@ class WorkshopProvider extends ChangeNotifier {
     LatLng? customCenter,
     int? radiusMeters,
     ({double south, double west, double north, double east})? boundingBox,
+    bool automatic = false,
+    bool forceRefresh = false,
   }) async {
-    final effectiveQuery = query.isNotEmpty ? query : city;
-    final searchKey = boundingBox != null
-        ? '${boundingBox.south.toStringAsFixed(3)},${boundingBox.west.toStringAsFixed(3)},${boundingBox.north.toStringAsFixed(3)},${boundingBox.east.toStringAsFixed(3)}'
-        : (customCenter != null
-            ? '${customCenter.latitude.toStringAsFixed(4)},${customCenter.longitude.toStringAsFixed(4)}:${radiusMeters ?? 0}'
-            : effectiveQuery.trim().toLowerCase());
-    if (_isLoading && _pendingSearch == searchKey) return;
-    _pendingSearch = searchKey;
+    final term = (query.isNotEmpty ? query : city).trim();
+    final key = '$term|$customCenter|$radiusMeters|$boundingBox';
+    if (_isLoading && _pendingSearch == key) return;
+    _retryAction = () => searchWorkshops(
+        city: city,
+        query: query,
+        customCenter: customCenter,
+        radiusMeters: radiusMeters,
+        boundingBox: boundingBox,
+        forceRefresh: true);
     final generation = ++_searchGeneration;
+    _lastSearchAutomatic = automatic;
+    _openStreetMapService.cancelDiscoverySearches();
+    _pendingSearch = key;
     _isLoading = true;
     _errorMessage = null;
+    _searchNotice = null;
+    _automaticRetryAt = null;
     _hasSearched = true;
     _selectedWorkshop = null;
-    if (effectiveQuery.trim().isNotEmpty) {
-      _searchQuery = effectiveQuery.trim();
-      addRecentSearch(effectiveQuery.trim());
+    if (term.isNotEmpty) {
+      _searchQuery = term;
+      unawaited(addRecentSearch(term));
+    } else if (customCenter == null) {
+      _searchQuery = '';
     }
     notifyListeners();
-
+    bool stale() => _disposed || generation != _searchGeneration;
+    Future<List<Workshop>> nearby(LatLng center,
+            {int? radius,
+            ({
+              double south,
+              double west,
+              double north,
+              double east
+            })? bounds}) =>
+        _openStreetMapService.searchNearbyWorkshops(center,
+            radiusMeters: radius,
+            boundingBox: bounds,
+            automatic: automatic,
+            forceRefresh: forceRefresh, onProgress: (items) {
+          if (!stale()) {
+            _acceptResults(items);
+            notifyListeners();
+          }
+        });
     try {
-      // 1. Busca por cidade explícita (chamada direta ou testes unitários de geocodificação de cidade)
+      if (customCenter != null) {
+        _setSearchArea(customCenter,
+            radius: radiusMeters ?? 8000, bounds: boundingBox);
+        final results = await nearby(customCenter,
+            radius: radiusMeters, bounds: boundingBox);
+        if (!stale()) _acceptResults(results);
+        return;
+      }
       if (city.trim().isNotEmpty) {
         final center = await _openStreetMapService.geocodeCity(city.trim());
-        if (_disposed || generation != _searchGeneration) return;
-        _searchCenter = center;
-        _openStreetMapService.proximityCenter = center;
-        notifyListeners();
-        final results = await _openStreetMapService.searchNearbyWorkshops(center);
-        if (_disposed || generation != _searchGeneration) return;
-        _workshops = results;
+        if (stale()) return;
+        _searchQuery = ''; // A cidade define a área, não um filtro de endereço.
+        _setSearchArea(center);
+        final results = await nearby(center);
+        if (!stale()) _acceptResults(results);
         return;
       }
-
-      // 2. Otimização rápida e inteligente: se já temos oficinas correspondentes em memória
-      // (ex: oficina parceira Autobahn ou carregada no raio), centraliza no primeiro resultado
-      if (query.trim().isNotEmpty && customCenter == null) {
-        final localMatches = getFilteredWorkshops(null);
-        if (localMatches.isNotEmpty) {
-          final first = localMatches.firstWhere(
-            (w) => w.latitude != null && w.longitude != null,
-            orElse: () => localMatches.first,
-          );
-          if (first.latitude != null && first.longitude != null) {
-            _searchCenter = LatLng(first.latitude!, first.longitude!);
-            _isLoading = false;
-            _pendingSearch = null;
-            notifyListeners();
+      if (term.isEmpty) {
+        final center = await _locationService.getCurrentLocation();
+        if (stale()) return;
+        _deviceLocation = center;
+        _setSearchArea(center);
+        final preferences = await SharedPreferences.getInstance();
+        if (stale()) return;
+        await preferences.setDouble(_lastKnownLatKey, center.latitude);
+        await preferences.setDouble(_lastKnownLngKey, center.longitude);
+        if (stale()) return;
+        final results = await nearby(center);
+        if (!stale()) _acceptResults(results);
+        return;
+      }
+      final category = Workshop.categoryForSearch(term);
+      final localMatches = getFilteredWorkshops(null);
+      final localPoint = localMatches
+          .where((w) => w.latitude != null && w.longitude != null)
+          .firstOrNull;
+      final reference = _searchCenter ??
+          _deviceLocation ??
+          (localPoint == null
+              ? null
+              : LatLng(localPoint.latitude!, localPoint.longitude!));
+      if (category != null) {
+        _selectedCategory = category;
+        final center = reference ?? await _locationService.getCurrentLocation();
+        if (stale()) return;
+        _setSearchArea(center);
+        final results = await nearby(center);
+        if (!stale()) _acceptResults(results);
+        return;
+      }
+      Object? nameFailure;
+      if (reference != null) {
+        try {
+          final results = await _openStreetMapService.searchWorkshopsByName(
+              term, reference);
+          if (stale()) return;
+          if (results.isNotEmpty) {
+            _setSearchArea(reference, radius: 35000);
+            _acceptResults(results);
+            _selectedWorkshop = _workshops.firstOrNull;
             return;
           }
+          // A consulta remota foi executada mesmo quando já havia correspondência local.
+          if (localMatches.isNotEmpty) {
+            _setSearchArea(reference, radius: 35000);
+            _acceptResults(localMatches);
+            _selectedWorkshop = localMatches.first;
+            return;
+          }
+        } catch (error) {
+          nameFailure = error;
         }
       }
-
-      // 2. Se um centro manual foi fornecido (ex: câmera movida no mapa), busca no raio ou viewport
-      if (customCenter != null) {
-        _searchCenter = customCenter;
-        _openStreetMapService.proximityCenter = customCenter;
-        notifyListeners();
-        final results = await _openStreetMapService.searchNearbyWorkshops(
-          customCenter,
-          radiusMeters: radiusMeters,
-          boundingBox: boundingBox,
-        );
-        if (_disposed || generation != _searchGeneration) return;
-        // Integração cumulativa estilo Google Maps: adiciona novos resultados sem sumir com os anteriores
-        for (final w in results) {
-          _spatialWorkshopsCache[w.id] = w;
-        }
-        _workshops = _spatialWorkshopsCache.values.toList();
-        return;
-      }
-
-      // 3. Se a busca for vazia, utiliza a localização GPS do dispositivo
-      if (effectiveQuery.trim().isEmpty) {
-        final center = await _locationService.getCurrentLocation();
-        if (_disposed || generation != _searchGeneration) return;
-        _deviceLocation = center;
-        _searchCenter = center;
-        _openStreetMapService.proximityCenter = center;
-
-        // Salva a localização para a próxima inicialização ser instantânea
-        SharedPreferences.getInstance().then((prefs) {
-          prefs.setDouble(_lastKnownLatKey, center.latitude);
-          prefs.setDouble(_lastKnownLngKey, center.longitude);
-        }).catchError((_) {});
-
-        notifyListeners();
-        final results = await _openStreetMapService.searchNearbyWorkshops(center);
-        if (_disposed || generation != _searchGeneration) return;
-        for (final w in results) {
-          _spatialWorkshopsCache[w.id] = w;
-        }
-        _workshops = _spatialWorkshopsCache.values.toList();
-        return;
-      }
-
-      // 4. Busca inteligente por termo/endereço/oficina (com prioridade local estilo Uber)
-      final reference = _searchCenter;
-
-      // 4a. Tenta buscar estabelecimentos com este nome ao redor da região do usuário
-      if (reference != null) {
-        final workshopsByName = await _openStreetMapService.searchWorkshopsByName(
-          effectiveQuery,
-          reference,
-        );
-
-        if (workshopsByName.isNotEmpty) {
-          if (_disposed || generation != _searchGeneration) return;
-          _workshops = [
-            ...workshopsByName,
-            ..._workshops.where((w) => !workshopsByName.any((n) => n.id == w.id)),
-          ];
-          _searchCenter = LatLng(
-            workshopsByName.first.latitude!,
-            workshopsByName.first.longitude!,
-          );
-          _openStreetMapService.proximityCenter = _searchCenter;
-          _errorMessage = null;
-          notifyListeners();
-          return;
-        }
-      }
-
-      // 4b. Geocodifica a localidade ou endereço com viés regional (viewbox)
-      _openStreetMapService.proximityCenter = reference;
+      LatLng center;
+      if (stale()) return;
       try {
-        final center = await _openStreetMapService.geocodeCity(effectiveQuery);
-        if (_disposed || generation != _searchGeneration) return;
-
-        // Se uma posição de referência existe (usuário local), e o termo pesquisado não contém
-        // indicação explícita de outro estado (ex: ", SP" ou "- RJ"), rejeita saltos para outros estados (> 120 km)
-        final isExplicitDistantSearch = RegExp(
-          r'([,-]\s*[A-Za-z]{2}\b)|(\b(sp|rj|mg|ba|pr|sc|rs|es|go|df|pe|ce|pa|am|mt|ms|rn|pb|ma|pi|al|se|to|ro|ac|ap|rr)\b)',
-          caseSensitive: false,
-        ).hasMatch(effectiveQuery);
-
-        var isAcceptable = true;
-        if (reference != null && !isExplicitDistantSearch) {
-          const distCalc = Distance();
-          final km = distCalc.as(LengthUnit.Kilometer, reference, center);
-          if (km > 120) {
-            isAcceptable = false;
-          }
-        }
-
-        if (isAcceptable) {
-          _searchCenter = center;
-          _openStreetMapService.proximityCenter = center;
-          notifyListeners();
-          final results = await _openStreetMapService.searchNearbyWorkshops(center);
-          if (_disposed || generation != _searchGeneration) return;
-          _workshops = results;
-          _errorMessage = null;
-        } else {
-          // Se o resultado geocodificado está muito longe e o usuário não pediu outro estado,
-          // não move a câmera para outro estado e não substitui os dados locais.
-          _errorMessage = null;
-        }
-      } catch (e) {
-        // Se for erro simulado de indisponibilidade de serviço em teste, propaga
-        if (e.toString().contains('Serviço de teste indisponível')) {
-          rethrow;
-        }
-        // Se a geocodificação não encontrou cidade/bairro para o termo digitado (ex: nome de oficina),
-        // isso é esperado e não configura falha técnica de conexão. Mantemos sem erro vermelho.
-        _errorMessage = null;
+        _openStreetMapService.proximityCenter = reference;
+        center = await _openStreetMapService.geocodeCity(term);
+      } catch (error) {
+        throw nameFailure ?? error;
       }
-
-      // Auto-heal: caso alguma oficina customizada esteja salva sem coordenadas
-      var hasHealed = false;
-      for (var i = 0; i < _customWorkshops.length; i++) {
-        final cw = _customWorkshops[i];
-        if (cw.latitude == null || cw.longitude == null) {
-          final match = _workshops.where((osm) =>
-              osm.latitude != null &&
-              osm.longitude != null &&
-              osm.name.toLowerCase().trim() == cw.name.toLowerCase().trim()).firstOrNull;
-          if (match != null) {
-            _customWorkshops[i] = cw.copyWith(
-              latitude: match.latitude,
-              longitude: match.longitude,
-            );
-            hasHealed = true;
-          }
-        }
-      }
-      if (hasHealed) {
-        final preferences = await SharedPreferences.getInstance();
-        final jsonList = _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
-        await preferences.setStringList(_customWorkshopsKey, jsonList);
-      }
+      if (stale()) return;
+      _searchQuery = '';
+      _setSearchArea(center);
+      final results = await nearby(center);
+      if (!stale()) _acceptResults(results);
+    } on AutomaticSearchDeferred catch (deferred) {
+      if (!stale()) _automaticRetryAt = deferred.until;
+    } on DiscoveryCancelled {
+      // Uma busca mais recente assumiu o controle da tela.
     } catch (error) {
-      if (_disposed || generation != _searchGeneration) return;
-      // Se já temos oficinas carregadas e o usuário fez uma busca textual que não foi achada na nuvem,
-      // não exibimos o erro como falha catastrófica: mantemos a lista e mostramos o estado vazio amigável
-      if (effectiveQuery.trim().isNotEmpty && _workshops.isNotEmpty) {
-        _errorMessage = null;
-      } else {
+      if (!stale()) {
         _errorMessage = error.toString().replaceFirst('Exception: ', '');
       }
     } finally {
-      if (!_disposed && generation == _searchGeneration) {
+      if (!stale()) {
         _isLoading = false;
         _pendingSearch = null;
         notifyListeners();
       }
     }
+  }
+
+  void _setSearchArea(LatLng center,
+      {int radius = 8000,
+      ({double south, double west, double north, double east})? bounds}) {
+    _searchCenter = center;
+    _activeRadiusMeters = radius;
+    _activeBounds = bounds;
+    _openStreetMapService.proximityCenter = center;
+    notifyListeners();
+  }
+
+  void _acceptResults(List<Workshop> results) {
+    _searchNotice = results is WorkshopSearchResult ? results.notice : null;
+    _resultsStale = results is WorkshopSearchResult && results.isStale;
+    _workshops = {
+      if (results is WorkshopSearchResult &&
+          (!results.isComplete || results.isStale))
+        for (final w in _workshops)
+          if (!w.isExcludedFromDiscovery && _withinCurrentArea(w)) w.id: w,
+      for (final w in results)
+        if (!w.isExcludedFromDiscovery) w.id: w
+    }.values.toList();
+    _sortByDistance(_workshops);
+    // Preserva a recuperação de coordenadas de cadastros antigos sem posição.
+    var changed = false;
+    for (var i = 0; i < _customWorkshops.length; i++) {
+      final custom = _customWorkshops[i];
+      if (custom.latitude != null && custom.longitude != null) continue;
+      final match = _workshops
+          .where((w) =>
+              w.latitude != null &&
+              w.longitude != null &&
+              normalizeSearchText(w.name) == normalizeSearchText(custom.name))
+          .firstOrNull;
+      if (match != null) {
+        _customWorkshops[i] = custom.copyWith(
+            latitude: match.latitude, longitude: match.longitude);
+        changed = true;
+      }
+    }
+    if (changed) unawaited(_persistCustomCoordinates());
+  }
+
+  Future<void> _persistCustomCoordinates() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(_customWorkshopsKey,
+        _customWorkshops.map((w) => jsonEncode(w.toJson())).toList());
+  }
+
+  Future<void> retrySearch() {
+    return _retryAction?.call() ?? searchWorkshops();
+  }
+
+  void _sortByDistance(List<Workshop> list) {
+    final center = _searchCenter;
+    if (center == null) return;
+    for (var i = 0; i < list.length; i++) {
+      final w = list[i];
+      if (w.latitude != null && w.longitude != null) {
+        list[i] = w.copyWith(
+            distanceKm: const Distance(roundResult: false).as(
+                LengthUnit.Kilometer,
+                center,
+                LatLng(w.latitude!, w.longitude!)));
+      }
+    }
+    list.sort((a, b) => (a.distanceKm ?? double.infinity)
+        .compareTo(b.distanceKm ?? double.infinity));
   }
 
   void setSearchQuery(String query) {
@@ -466,7 +517,8 @@ class WorkshopProvider extends ChangeNotifier {
     _customWorkshops.removeWhere((w) => w.id == workshop.id);
     _customWorkshops.insert(0, workshop);
     final preferences = await SharedPreferences.getInstance();
-    final jsonList = _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+    final jsonList =
+        _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
     await preferences.setStringList(_customWorkshopsKey, jsonList);
     if (!_disposed) notifyListeners();
 
@@ -483,7 +535,8 @@ class WorkshopProvider extends ChangeNotifier {
   Future<void> removeCustomWorkshop(String workshopId) async {
     _customWorkshops.removeWhere((w) => w.id == workshopId);
     final preferences = await SharedPreferences.getInstance();
-    final jsonList = _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
+    final jsonList =
+        _customWorkshops.map((w) => jsonEncode(w.toJson())).toList();
     await preferences.setStringList(_customWorkshopsKey, jsonList);
     if (!_disposed) notifyListeners();
 
@@ -498,80 +551,87 @@ class WorkshopProvider extends ChangeNotifier {
   }
 
   List<Workshop> getFilteredWorkshops(Vehicle? activeVehicle) {
-    // Unifica oficinas cadastradas personalizadas (no topo com destaque) e oficinas do OpenStreetMap
-    final matchesAutobahn = _searchQuery.toLowerCase().contains('autobahn');
-    final allList = <Workshop>[
-      if (matchesAutobahn && !_customWorkshops.any((c) => c.name.toLowerCase().contains('autobahn')))
+    final custom = _customWorkshops
+        .where((w) => !w.isExcludedFromDiscovery && _withinCurrentArea(w))
+        .toList();
+    final all = <Workshop>[
+      if (normalizeSearchText(_searchQuery).contains('autobahn') &&
+          !custom.any((w) => normalizeSearchText(w.name).contains('autobahn')))
         autobahnPartner,
-      ..._customWorkshops,
-      ..._workshops.where((osm) => !_customWorkshops.any((c) =>
-          c.id == osm.id ||
-          c.name.toLowerCase().trim() == osm.name.toLowerCase().trim())),
+      ...custom,
+      ..._workshops.where((osm) => !custom.any((w) {
+            if (w.id == osm.id) return true;
+            if (normalizeSearchText(w.name) != normalizeSearchText(osm.name) ||
+                w.latitude == null ||
+                w.longitude == null ||
+                osm.latitude == null ||
+                osm.longitude == null) {
+              return false;
+            }
+            return const Distance(roundResult: false).as(
+                    LengthUnit.Meter,
+                    LatLng(w.latitude!, w.longitude!),
+                    LatLng(osm.latitude!, osm.longitude!)) <
+                100;
+          })),
     ];
-
-    return allList.where((w) {
-      // Filtro de categoria
-      if (_selectedCategory != null && w.categoryType != _selectedCategory) {
+    final categoryQuery = Workshop.categoryForSearch(_searchQuery);
+    final result = all.where((w) {
+      if (w.isExcludedFromDiscovery || !_withinCurrentArea(w)) return false;
+      if (_selectedCategory != null && !w.matchesCategory(_selectedCategory!)) {
         return false;
       }
-
-      // Filtro de busca textual (nome, serviços, marcas atendidas, especialidades, endereço)
-      if (_searchQuery.trim().isNotEmpty) {
-        final q = _searchQuery.toLowerCase().trim();
-        final matchesName = w.name.toLowerCase().contains(q);
-        final matchesCategory = w.category.toLowerCase().contains(q);
-        final matchesAddress = w.address.toLowerCase().contains(q);
-        final matchesBrands =
-            w.supportedBrands.any((b) => b.toLowerCase().contains(q));
-        final matchesSpecialties =
-            w.specialties.any((s) => s.toLowerCase().contains(q));
-        final matchesServices =
-            w.services.any((s) => s.name.toLowerCase().contains(q));
-
-        var matches = matchesName ||
-            matchesCategory ||
-            matchesAddress ||
-            matchesBrands ||
-            matchesSpecialties ||
-            matchesServices;
-
-        // Se a busca completa não casou diretamente, verifica se todos os termos (tokens)
-        // individuais estão presentes nos atributos da oficina (ex: "AUTOBAHN OFICINA"
-        // casa "Autobahn" no nome e "Oficina" na categoria ou nome).
-        if (!matches) {
-          final tokens =
-              q.split(RegExp(r'\s+')).where((t) => t.length >= 2).toList();
-          if (tokens.isNotEmpty) {
-            final allTokensMatch = tokens.every((token) {
-              return w.name.toLowerCase().contains(token) ||
-                  w.category.toLowerCase().contains(token) ||
-                  w.address.toLowerCase().contains(token) ||
-                  w.supportedBrands
-                      .any((b) => b.toLowerCase().contains(token)) ||
-                  w.specialties.any((s) => s.toLowerCase().contains(token)) ||
-                  w.services.any((s) => s.name.toLowerCase().contains(token));
-            });
-            if (allTokensMatch) {
-              matches = true;
-            }
-          }
-        }
-
-        if (!matches) {
-          return false;
-        }
+      if (categoryQuery != null) {
+        if (!w.matchesCategory(categoryQuery)) return false;
+      } else if (!_matchesText(w, _searchQuery)) {
+        return false;
       }
-
-      // Filtro de compatibilidade alta
-      if (_onlyCompatibleWithVehicle && activeVehicle != null) {
-        final comp = w.calculateCompatibility(activeVehicle);
-        if (comp.percentage < 90) {
-          return false;
-        }
+      if (_onlyCompatibleWithVehicle &&
+          activeVehicle != null &&
+          w.calculateCompatibility(activeVehicle).percentage < 90) {
+        return false;
       }
-
       return true;
     }).toList();
+    // Cadastros da região e OSM usam a mesma ordenação por proximidade.
+    _sortByDistance(result);
+    return result;
+  }
+
+  bool _withinCurrentArea(Workshop w) {
+    if (_searchCenter == null) return true;
+    final lat = w.latitude, lon = w.longitude;
+    if (lat == null || lon == null) return false;
+    final box = _activeBounds;
+    if (box != null) {
+      return lat >= box.south &&
+          lat <= box.north &&
+          lon >= box.west &&
+          lon <= box.east;
+    }
+    return const Distance(roundResult: false)
+            .as(LengthUnit.Meter, _searchCenter!, LatLng(lat, lon)) <=
+        _activeRadiusMeters;
+  }
+
+  bool _matchesText(Workshop w, String query) {
+    final q = normalizeSearchText(query);
+    if (q.isEmpty) return true;
+    final text = normalizeSearchText([
+      w.name,
+      w.address,
+      w.category,
+      w.categoryType.label,
+      ...w.additionalCategories.map((c) => c.label),
+      ...w.supportedBrands,
+      ...w.specialties,
+      ...w.services.map((s) => s.name)
+    ].join(' '));
+    if (text.contains(q)) return true;
+    const stopWords = {'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'na', 'no'};
+    final tokens =
+        q.split(' ').where((token) => !stopWords.contains(token)).toList();
+    return tokens.isNotEmpty && tokens.every(text.contains);
   }
 
   @override
