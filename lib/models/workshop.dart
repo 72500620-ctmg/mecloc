@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'automotive_service.dart';
 import 'vehicle.dart';
+import '../utils/search_text.dart';
 
 enum WorkshopCategory {
   mechanic,
@@ -85,6 +86,7 @@ class Workshop {
     this.openStreetMapUrl,
     this.category = 'Oficina Mecânica',
     this.categoryType = WorkshopCategory.mechanic,
+    this.additionalCategories = const [],
     this.supportedBrands = const [],
     this.specialties = const [],
     this.services = const [],
@@ -113,6 +115,7 @@ class Workshop {
   final String? openStreetMapUrl;
   final String category;
   final WorkshopCategory categoryType;
+  final List<WorkshopCategory> additionalCategories;
   final List<String> supportedBrands;
   final List<String> specialties;
   final List<AutomotiveService> services;
@@ -152,6 +155,107 @@ class Workshop {
     }
     return '${distanceKm!.toStringAsFixed(1)} km';
   }
+
+  bool matchesCategory(WorkshopCategory value) =>
+      categoryType == value || additionalCategories.contains(value);
+
+  bool get isExcludedFromDiscovery => isExcludedBusiness('$name $category');
+
+  static bool isExcludedBusiness(String text) => RegExp(
+        r'\b(concessionaria[s]?|concessionario[s]?|revenda de (carros|veiculos)|venda de (carros|veiculos)|seminovos)\b',
+      ).hasMatch(normalizeSearchText(text));
+
+  /// Apenas atividades automotivas confirmadas pelas tags entram na descoberta.
+  static bool acceptsOsmTags(Map<String, dynamic> tags) {
+    final shop = tags['shop'];
+    if (const [
+          'car',
+          'motorcycle',
+          'motorcycle_repair',
+          'truck',
+          'truck_repair'
+        ].contains(shop) ||
+        isExcludedBusiness(tags['name']?.toString() ?? '')) {
+      return false;
+    }
+    if (tags['disused'] == 'yes' ||
+        tags['abandoned'] == 'yes' ||
+        tags['access'] == 'private') {
+      return false;
+    }
+    return const ['car_repair', 'tyres', 'car_parts', 'car_accessories']
+            .contains(shop) ||
+        tags['craft'] == 'car_repair' ||
+        tags['amenity'] == 'car_wash' ||
+        vehicleServices.keys
+            .any((key) => _positive(tags['service:vehicle:$key']));
+  }
+
+  static bool _positive(Object? value) => const ['yes', 'only'].contains(value);
+
+  static const vehicleServices = <String, (WorkshopCategory, String)>{
+    'car_repair': (WorkshopCategory.mechanic, 'Mecânica geral'),
+    'oil_change': (WorkshopCategory.oilChange, 'Troca de óleo'),
+    'body_repair': (WorkshopCategory.bodyPaint, 'Funilaria'),
+    'painting': (WorkshopCategory.bodyPaint, 'Pintura automotiva'),
+    'tyres': (WorkshopCategory.tireShop, 'Pneus e borracharia'),
+    'car_wash': (WorkshopCategory.carWash, 'Lava-jato'),
+    'cleaning': (WorkshopCategory.detailing, 'Estética automotiva'),
+    'electrical': (WorkshopCategory.specialist, 'Auto elétrica'),
+    'glass': (WorkshopCategory.specialist, 'Vidros automotivos'),
+    'air_conditioning': (WorkshopCategory.specialist, 'Ar condicionado'),
+    'brakes': (WorkshopCategory.specialist, 'Freios'),
+    'transmission': (WorkshopCategory.specialist, 'Câmbio'),
+    'diagnostics': (WorkshopCategory.specialist, 'Diagnóstico eletrônico'),
+    'alignment': (WorkshopCategory.tireShop, 'Alinhamento e balanceamento'),
+    'batteries': (WorkshopCategory.specialist, 'Baterias'),
+  };
+
+  static WorkshopCategory? categoryForSearch(String query) =>
+      switch (normalizeSearchText(query)) {
+        'oficina' ||
+        'oficinas' ||
+        'mecanica' ||
+        'mecanico' ||
+        'oficina mecanica' ||
+        'oficinas mecanicas' =>
+          WorkshopCategory.mechanic,
+        'pneu' ||
+        'pneus' ||
+        'borracharia' ||
+        'borracharias' ||
+        'alinhamento' ||
+        'balanceamento' =>
+          WorkshopCategory.tireShop,
+        'lava jato' ||
+        'lavajato' ||
+        'lava jatos' ||
+        'lavagem' ||
+        'lavagem automotiva' =>
+          WorkshopCategory.carWash,
+        'oleo' ||
+        'troca de oleo' ||
+        'troca oleo' ||
+        'lubrificacao' =>
+          WorkshopCategory.oilChange,
+        'funilaria' ||
+        'pintura' ||
+        'funilaria e pintura' ||
+        'martelinho de ouro' =>
+          WorkshopCategory.bodyPaint,
+        'estetica' ||
+        'estetica automotiva' ||
+        'detalhamento' ||
+        'polimento' ||
+        'higienizacao' =>
+          WorkshopCategory.detailing,
+        'auto center' ||
+        'centro automotivo' ||
+        'autopecas' ||
+        'auto pecas' =>
+          WorkshopCategory.autoCenter,
+        _ => null,
+      };
 
   IconData get iconData {
     switch (categoryType) {
@@ -304,6 +408,7 @@ class Workshop {
     String? openStreetMapUrl,
     String? category,
     WorkshopCategory? categoryType,
+    List<WorkshopCategory>? additionalCategories,
     List<String>? supportedBrands,
     List<String>? specialties,
     List<AutomotiveService>? services,
@@ -332,6 +437,7 @@ class Workshop {
       openStreetMapUrl: openStreetMapUrl ?? this.openStreetMapUrl,
       category: category ?? this.category,
       categoryType: categoryType ?? this.categoryType,
+      additionalCategories: additionalCategories ?? this.additionalCategories,
       supportedBrands: supportedBrands ?? this.supportedBrands,
       specialties: specialties ?? this.specialties,
       services: services ?? this.services,
@@ -362,6 +468,8 @@ class Workshop {
         'openStreetMapUrl': openStreetMapUrl,
         'category': category,
         'categoryType': categoryType.name,
+        'additionalCategories':
+            additionalCategories.map((c) => c.name).toList(),
         'supportedBrands': supportedBrands,
         'specialties': specialties,
         'isOpenNow': isOpenNow,
@@ -381,27 +489,42 @@ class Workshop {
   factory Workshop.fromJson(Map<String, dynamic> json) {
     WorkshopCategory catType;
     try {
-      catType = WorkshopCategory.values.byName(json['categoryType'] as String? ?? 'mechanic');
+      catType = WorkshopCategory.values
+          .byName(json['categoryType'] as String? ?? 'mechanic');
     } catch (_) {
       catType = WorkshopCategory.mechanic;
     }
 
     return Workshop(
-      id: json['id'] as String? ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      id: json['id'] as String? ??
+          'custom_${DateTime.now().millisecondsSinceEpoch}',
       name: json['name'] as String? ?? 'Oficina',
       address: json['address'] as String? ?? 'Endereço não informado',
       latitude: _number(json['latitude']),
       longitude: _number(json['longitude']),
-      rating: _number(json['rating']) ?? 5.0,
-      ratingCount: json['ratingCount'] as int? ?? 1,
+      rating: _number(json['rating']) ??
+          (json['isCustomRegistered'] == false ? null : 5.0),
+      ratingCount: json['ratingCount'] as int? ??
+          (json['isCustomRegistered'] == false ? null : 1),
       phone: json['phone'] as String?,
       openStreetMapUrl: json['openStreetMapUrl'] as String?,
       category: json['category'] as String? ?? 'Oficina mecânica',
       categoryType: catType,
-      supportedBrands: (json['supportedBrands'] as List<dynamic>?)?.cast<String>() ?? const ['Todas as marcas'],
-      specialties: (json['specialties'] as List<dynamic>?)?.cast<String>() ?? const [],
+      additionalCategories: (json['additionalCategories'] as List<dynamic>? ??
+              [])
+          .whereType<String>()
+          .map((name) =>
+              WorkshopCategory.values.where((c) => c.name == name).firstOrNull)
+          .whereType<WorkshopCategory>()
+          .toList(),
+      supportedBrands:
+          (json['supportedBrands'] as List<dynamic>?)?.cast<String>() ??
+              const ['Todas as marcas'],
+      specialties:
+          (json['specialties'] as List<dynamic>?)?.cast<String>() ?? const [],
       isOpenNow: json['isOpenNow'] as bool? ?? true,
-      openingHours: json['openingHours'] as String? ?? 'Segunda a Sexta, 08:00 - 18:00',
+      openingHours:
+          json['openingHours'] as String? ?? 'Segunda a Sexta, 08:00 - 18:00',
       isVerified: json['isVerified'] as bool? ?? true,
       priceLevel: json['priceLevel'] as String? ?? 'R\$ \$\$',
       distanceKm: _number(json['distanceKm']),
@@ -434,12 +557,16 @@ class Workshop {
     final type = json['type'] as String? ?? 'node';
     final id = json['id'];
 
-    final rawName = tags['name'] as String? ?? 'Oficina mecânica';
-    final parsedCategory = _detectCategory(tags, rawName);
+    final rawName = (tags['name'] as String?)?.trim();
+    final name = (rawName != null && rawName.isNotEmpty)
+        ? rawName
+        : _deriveDefaultName(tags);
+    final parsedCategory = _detectCategory(tags, name);
+    final activities = _activities(tags, name);
 
     return Workshop(
       id: 'osm:$type:$id',
-      name: rawName,
+      name: name,
       address: address.isEmpty ? 'Endereço não informado' : address,
       latitude: latitude,
       longitude: longitude,
@@ -450,8 +577,23 @@ class Workshop {
       ratingCount: int.tryParse(tags['rating:count']?.toString() ?? ''),
       category: parsedCategory.$2,
       categoryType: parsedCategory.$1,
+      additionalCategories:
+          activities.where((c) => c != parsedCategory.$1).toList(),
+      specialties: vehicleServices.entries
+          .where((e) => _positive(tags['service:vehicle:${e.key}']))
+          .map((e) => e.value.$2)
+          .toList(),
       openingHours: tags['opening_hours'] as String? ?? 'Horário não informado',
     );
+  }
+
+  static String _deriveDefaultName(Map<String, dynamic> tags) {
+    if (tags['amenity'] == 'car_wash') return 'Lava-Jato';
+    if (tags['shop'] == 'tyres') return 'Borracharia / Pneus';
+    if (tags['shop'] == 'car_parts') return 'Auto Peças & Acessórios';
+    if (tags['shop'] == 'car') return 'Centro Automotivo / Concessionária';
+    if (tags['shop'] == 'motorcycle_repair') return 'Mecânica de Motos';
+    return 'Oficina mecânica';
   }
 
   static double? _number(Object? value) {
@@ -466,7 +608,97 @@ class Workshop {
       return (WorkshopCategory.carWash, 'Lava-jato');
     }
     if (tags['shop'] == 'tyres') return (WorkshopCategory.tireShop, 'Pneus');
+    if (tags['shop'] == 'car_parts') {
+      return (WorkshopCategory.autoCenter, 'Auto Peças & Serviços');
+    }
+    if (tags['shop'] == 'car') {
+      return (
+        WorkshopCategory.autoCenter,
+        'Centro Automotivo / Concessionária'
+      );
+    }
+    if (tags['shop'] == 'motorcycle_repair') {
+      return (WorkshopCategory.mechanic, 'Mecânica de Motos');
+    }
+    final activities = _activities(tags, name);
+    for (final category in [
+      WorkshopCategory.bodyPaint,
+      WorkshopCategory.oilChange,
+      WorkshopCategory.detailing,
+      WorkshopCategory.specialist,
+      WorkshopCategory.autoCenter
+    ]) {
+      if (activities.contains(category)) return (category, category.label);
+    }
     return (WorkshopCategory.mechanic, 'Oficina mecânica');
+  }
+
+  static Set<WorkshopCategory> _activities(
+      Map<String, dynamic> tags, String name) {
+    final categories = <WorkshopCategory>{};
+    if (tags['shop'] == 'car_repair' || tags['craft'] == 'car_repair') {
+      categories.add(WorkshopCategory.mechanic);
+    }
+    if (tags['shop'] == 'tyres') categories.add(WorkshopCategory.tireShop);
+    if (tags['amenity'] == 'car_wash') categories.add(WorkshopCategory.carWash);
+    if (const ['car_parts', 'car_accessories'].contains(tags['shop'])) {
+      categories.add(WorkshopCategory.autoCenter);
+    }
+    for (final entry in vehicleServices.entries) {
+      if (_positive(tags['service:vehicle:${entry.key}'])) {
+        categories.add(entry.value.$1);
+      }
+    }
+    final repairTypes = (tags['car_repair']?.toString() ?? '').split(';');
+    for (final type in repairTypes) {
+      final activity = vehicleServices[type.trim()];
+      if (activity != null) categories.add(activity.$1);
+      if (const ['bodywork', 'paint', 'body_repair'].contains(type.trim())) {
+        categories.add(WorkshopCategory.bodyPaint);
+      }
+    }
+    // Nomes refinam somente estabelecimentos previamente validados por atividade.
+    if (acceptsOsmTags(tags)) {
+      final text = normalizeSearchText(name);
+      final hints = <String, (WorkshopCategory, String?)>{
+        r'\b(troca de oleo|lubrificacao)\b': (
+          WorkshopCategory.oilChange,
+          'oil_change'
+        ),
+        r'\b(funilaria|pintura|martelinho)\b': (
+          WorkshopCategory.bodyPaint,
+          'body_repair'
+        ),
+        r'\b(estetica|polimento|detalhamento|higienizacao)\b': (
+          WorkshopCategory.detailing,
+          'cleaning'
+        ),
+        r'\b(pneus?|borracharia|alinhamento)\b': (
+          WorkshopCategory.tireShop,
+          'tyres'
+        ),
+        r'\b(lava jato|lavajato|lavagem)\b': (
+          WorkshopCategory.carWash,
+          'car_wash'
+        ),
+        r'\b(auto eletrica|vidros|ar condicionado|baterias)\b': (
+          WorkshopCategory.specialist,
+          null
+        ),
+        r'\b(auto center|centro automotivo)\b': (
+          WorkshopCategory.autoCenter,
+          null
+        ),
+      };
+      for (final hint in hints.entries) {
+        final key = hint.value.$2;
+        if ((key == null || tags['service:vehicle:$key'] != 'no') &&
+            RegExp(hint.key).hasMatch(text)) {
+          categories.add(hint.value.$1);
+        }
+      }
+    }
+    return categories;
   }
 }
 
