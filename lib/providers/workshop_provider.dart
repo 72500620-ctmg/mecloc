@@ -20,6 +20,8 @@ class WorkshopProvider extends ChangeNotifier {
   static const _favoriteDataKey = 'favorite_workshop_data';
   static const _recentSearchesKey = 'recent_search_terms';
   static const _customWorkshopsKey = 'custom_registered_workshops_v1';
+  static const _lastKnownLatKey = 'last_known_device_lat';
+  static const _lastKnownLngKey = 'last_known_device_lng';
 
   static const autobahnPartner = Workshop(
     id: 'partner:autobahn:001',
@@ -43,6 +45,7 @@ class WorkshopProvider extends ChangeNotifier {
   final LocationService _locationService;
 
   List<Workshop> _workshops = [];
+  final Map<String, Workshop> _spatialWorkshopsCache = {};
   List<Workshop> _customWorkshops = [];
   final Map<String, Workshop> _savedWorkshops = {};
   int _searchGeneration = 0;
@@ -156,6 +159,15 @@ class WorkshopProvider extends ChangeNotifier {
       debugPrint('Firestore fetch workshops fallback: $e');
     }
 
+    // Carrega instantaneamente a última localização conhecida do usuário (elimina o salto de Brasília)
+    final savedLat = preferences.getDouble(_lastKnownLatKey);
+    final savedLng = preferences.getDouble(_lastKnownLngKey);
+    if (savedLat != null && savedLng != null) {
+      _deviceLocation = LatLng(savedLat, savedLng);
+      _searchCenter = _deviceLocation;
+      _openStreetMapService.proximityCenter = _deviceLocation;
+    }
+
     if (!_disposed) notifyListeners();
     if (searchOnStart && !_disposed && !_hasSearched) {
       await searchWorkshops();
@@ -224,7 +236,11 @@ class WorkshopProvider extends ChangeNotifier {
         notifyListeners();
         final results = await _openStreetMapService.searchNearbyWorkshops(customCenter);
         if (_disposed || generation != _searchGeneration) return;
-        _workshops = results;
+        // Integração cumulativa estilo Google Maps: adiciona novos resultados sem sumir com os anteriores
+        for (final w in results) {
+          _spatialWorkshopsCache[w.id] = w;
+        }
+        _workshops = _spatialWorkshopsCache.values.toList();
         return;
       }
 
@@ -235,10 +251,20 @@ class WorkshopProvider extends ChangeNotifier {
         _deviceLocation = center;
         _searchCenter = center;
         _openStreetMapService.proximityCenter = center;
+
+        // Salva a localização para a próxima inicialização ser instantânea
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.setDouble(_lastKnownLatKey, center.latitude);
+          prefs.setDouble(_lastKnownLngKey, center.longitude);
+        }).catchError((_) {});
+
         notifyListeners();
         final results = await _openStreetMapService.searchNearbyWorkshops(center);
         if (_disposed || generation != _searchGeneration) return;
-        _workshops = results;
+        for (final w in results) {
+          _spatialWorkshopsCache[w.id] = w;
+        }
+        _workshops = _spatialWorkshopsCache.values.toList();
         return;
       }
 

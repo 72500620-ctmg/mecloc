@@ -373,8 +373,12 @@ out body center 15;
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["craft"="car_repair"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["amenity"="car_wash"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="tyres"];
+  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="motorcycle_repair"];
+  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car_parts"];
+  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["service:vehicle:glass"];
+  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["service:vehicle:electrical"];
 );
-out body center 60;
+out body center 150;
 ''';
 
     // Tentar endpoints Overpass em ordem com timeout ágil de 1.2s para evitar travar a navegação
@@ -440,7 +444,17 @@ out body center 60;
 
   Future<List<Workshop>> _searchPhotonWorkshops(
       LatLng center, Distance distanceCalc) async {
-    const terms = ['oficina', 'mecanica', 'lava jato', 'pneus'];
+    const terms = [
+      'oficina',
+      'mecanica',
+      'auto eletrica',
+      'auto center',
+      'lava jato',
+      'pneus',
+      'borracharia',
+      'troca de oleo',
+      'martelinho de ouro',
+    ];
     final seenIds = <String>{};
     final workshops = <Workshop>[];
 
@@ -451,7 +465,7 @@ out body center 60;
           'q': term,
           'lat': center.latitude.toString(),
           'lon': center.longitude.toString(),
-          'limit': '15',
+          'limit': '25',
         });
         final response = await _client
             .get(uri, headers: _buildHeaders())

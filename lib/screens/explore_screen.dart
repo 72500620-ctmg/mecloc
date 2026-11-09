@@ -200,7 +200,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final authProvider = context.watch<AuthProvider>();
     final vehicle = context.watch<VehicleProvider>().activeVehicle;
     final results = provider.getFilteredWorkshops(vehicle);
-    final center = provider.searchCenter ?? _initialCenter;
+    final center = provider.deviceLocation ?? provider.searchCenter ?? _initialCenter;
 
     final isSearching = _cityController.text.trim().isNotEmpty ||
         provider.selectedCategory != null ||

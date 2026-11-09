@@ -54,6 +54,9 @@ class _PendingLocationService extends LocationService {
   final Future<LatLng> pending;
 
   @override
+  Future<LatLng?> getLastKnownLocation() async => null;
+
+  @override
   Future<LatLng> getCurrentLocation() => pending;
 }
 

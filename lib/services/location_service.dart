@@ -4,6 +4,17 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 class LocationService {
+  /// Retorna instantaneamente a última posição em cache do dispositivo (sem esperar satélite)
+  Future<LatLng?> getLastKnownLocation() async {
+    try {
+      final pos = await Geolocator.getLastKnownPosition();
+      if (pos != null) {
+        return LatLng(pos.latitude, pos.longitude);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<LatLng> getCurrentLocation() async {
     try {
       final enabled = await Geolocator.isLocationServiceEnabled()
