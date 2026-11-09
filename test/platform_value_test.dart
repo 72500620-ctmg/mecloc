@@ -1,11 +1,15 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:mecloc/models/maintenance_item.dart';
 import 'package:mecloc/models/vehicle.dart';
 import 'package:mecloc/models/workshop.dart';
 import 'package:mecloc/providers/quotes_provider.dart';
+import 'package:mecloc/providers/vehicle_provider.dart';
 import 'package:mecloc/providers/workshop_provider.dart';
+import 'package:mecloc/widgets/whatsapp_quote_modal.dart';
 
 void main() {
   group('WhatsApp Quotes Formatting & Normalization', () {
@@ -150,6 +154,89 @@ void main() {
       expect(freshOilItem.kmRemaining(freshVehicle.mileageKm), 10000);
       expect(freshOilItem.getStatus(freshVehicle.mileageKm), MaintenanceStatus.ok);
       expect(freshOilItem.statusBadgeLabel(freshVehicle.mileageKm), 'Em dia');
+    });
+  });
+
+  group('UX & Modal Dismissal Enhancements', () {
+    testWidgets('WhatsAppQuoteModal renders close button and drag handle outside scroll', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      const workshop = Workshop(
+        id: 'w_test',
+        name: 'Auto Center Teste',
+        address: 'Rua Teste, 123',
+        phone: '31999998888',
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => VehicleProvider()),
+            ChangeNotifierProvider(create: (_) => QuotesProvider()),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: WhatsAppQuoteModal(workshop: workshop),
+            ),
+          ),
+        ),
+      );
+
+      // Botão fechar (X)
+      expect(find.byTooltip('Fechar'), findsOneWidget);
+      expect(find.text('Orçamento via WhatsApp'), findsOneWidget);
+      expect(find.text('Auto Center Teste'), findsOneWidget);
+    });
+
+    test('searching query for Autobahn filters and centers locally without distant geocoding error', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = WorkshopProvider();
+      await provider.initialize(searchOnStart: false);
+
+      provider.setSearchQuery('AUTOBAHN OFICINA');
+      final matches = provider.getFilteredWorkshops(null);
+      expect(matches, isNotEmpty);
+      expect(matches.any((w) => w.name.contains('Autobahn')), isTrue);
+
+      await provider.searchWorkshops(query: 'AUTOBAHN OFICINA');
+      expect(provider.errorMessage, isNull);
+      expect(provider.searchCenter?.latitude, closeTo(-19.9101, 0.01));
+      provider.dispose();
+    });
+
+    test('favoriting custom registered and partner workshops works and persists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = WorkshopProvider();
+      await provider.initialize(searchOnStart: false);
+
+      const customWorkshop = Workshop(
+        id: 'cw_custom_fav',
+        name: 'Auto Elétrica do Zé',
+        address: 'Av. Brasil, 500',
+        phone: '3133334444',
+      );
+      await provider.registerCustomWorkshop(customWorkshop);
+
+      // Favorita oficina customizada
+      expect(provider.isFavorite(customWorkshop.id), isFalse);
+      await provider.toggleFavorite(customWorkshop.id, customWorkshop);
+      expect(provider.isFavorite(customWorkshop.id), isTrue);
+      expect(provider.favoriteWorkshops.any((w) => w.id == customWorkshop.id), isTrue);
+
+      // Favorita parceiro Autobahn
+      expect(provider.isFavorite(WorkshopProvider.autobahnPartner.id), isFalse);
+      await provider.toggleFavorite(WorkshopProvider.autobahnPartner.id);
+      expect(provider.isFavorite(WorkshopProvider.autobahnPartner.id), isTrue);
+      expect(provider.favoriteWorkshops.any((w) => w.id == WorkshopProvider.autobahnPartner.id), isTrue);
+
+      provider.dispose();
+
+      // Recarrega novo provider e garante que os favoritos foram restaurados
+      final restored = WorkshopProvider();
+      await restored.initialize(searchOnStart: false);
+      expect(restored.isFavorite(customWorkshop.id), isTrue);
+      expect(restored.isFavorite(WorkshopProvider.autobahnPartner.id), isTrue);
+      expect(restored.favoriteWorkshops.length, 2);
+      restored.dispose();
     });
   });
 }

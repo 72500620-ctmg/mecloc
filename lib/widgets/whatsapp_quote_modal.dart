@@ -26,6 +26,8 @@ class WhatsAppQuoteModal extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      enableDrag: true,
+      isDismissible: true,
       backgroundColor: Colors.transparent,
       builder: (_) => WhatsAppQuoteModal(
         workshop: workshop,
@@ -188,206 +190,250 @@ class _WhatsAppQuoteModalState extends State<WhatsAppQuoteModal> {
     final vehicles = vehicleProvider.vehicles;
     final hasPhone = widget.workshop.phone != null && widget.workshop.phone!.trim().isNotEmpty;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
-      ),
-      child: SingleChildScrollView(
+    return SafeArea(
+      top: false,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
+            // Área de toque superior para arrastar e fechar (Drag Handle)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragEnd: (details) {
+                if ((details.primaryVelocity ?? 0) > 80) {
+                  Navigator.of(context).pop();
+                }
+              },
               child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF25D366).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+
+            // Header fixo com ícone, título e botão fechar (X)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 12, 10),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 24),
                   ),
-                  child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Orçamento via WhatsApp',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          widget.workshop.name,
+                          style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 0.6),
+
+            // Conteúdo scrollável com fechamento por pull-down overscroll
+            Flexible(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is OverscrollNotification &&
+                      notification.overscroll < -18) {
+                    Navigator.of(context).pop();
+                    return true;
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (!hasPhone)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded, color: Colors.amber, size: 20),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Esta oficina não tem WhatsApp listado no mapa. O orçamento será salvo no seu histórico do app.',
+                                  style: TextStyle(fontSize: 12.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Seleção de Veículo
                       const Text(
-                        'Orçamento via WhatsApp',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        'Veículo para o orçamento',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                       ),
-                      Text(
-                        widget.workshop.name,
-                        style: const TextStyle(fontSize: 13, color: AppColors.muted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 8),
+                      if (vehicles.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.directions_car_outlined, size: 20, color: AppColors.muted),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Nenhum carro cadastrado. Cadastre na aba "Veículos" para preenchimento automático.',
+                                  style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<Vehicle>(
+                          initialValue: _selectedVehicle,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            filled: true,
+                            fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          items: vehicles.map((v) {
+                            return DropdownMenuItem<Vehicle>(
+                              value: v,
+                              child: Text('${v.displayName}${v.plate.isNotEmpty ? " • ${v.plate}" : ""}'),
+                            );
+                          }).toList(),
+                          onChanged: (val) => setState(() => _selectedVehicle = val),
+                        ),
+
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Serviço desejado',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _serviceController,
+                        decoration: InputDecoration(
+                          hintText: 'Ex.: Troca de pastilhas de freio dianteiras',
+                          filled: true,
+                          fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Atalhos de serviços mais comuns
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _commonServices.map((serviceName) {
+                          final isSelected = _serviceController.text == serviceName;
+                          return ChoiceChip(
+                            label: Text(serviceName, style: const TextStyle(fontSize: 12)),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _serviceController.text = selected ? serviceName : '';
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Observações / Sintomas (opcional)',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _notesController,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText: 'Ex.: Barulho ao frear, carro trepida em alta velocidade...',
+                          filled: true,
+                          fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: _submitQuote,
+                        icon: const Icon(Icons.send_rounded, size: 20),
+                        label: Text(
+                          hasPhone ? 'Enviar Orçamento via WhatsApp' : 'Registrar Solicitação no App',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (!hasPhone)
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline_rounded, color: Colors.amber, size: 20),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Esta oficina não tem WhatsApp listado no mapa. O orçamento será salvo no seu histórico do app.',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Seleção de Veículo
-            const Text(
-              'Veículo para o orçamento',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            if (vehicles.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.directions_car_outlined, size: 20, color: AppColors.muted),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Nenhum carro cadastrado. Cadastre na aba "Veículos" para preenchimento automático.',
-                        style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              DropdownButtonFormField<Vehicle>(
-                initialValue: _selectedVehicle,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  filled: true,
-                  fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                items: vehicles.map((v) {
-                  return DropdownMenuItem<Vehicle>(
-                    value: v,
-                    child: Text('${v.displayName}${v.plate.isNotEmpty ? " • ${v.plate}" : ""}'),
-                  );
-                }).toList(),
-                onChanged: (val) => setState(() => _selectedVehicle = val),
-              ),
-
-            const SizedBox(height: 16),
-            const Text(
-              'Serviço desejado',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _serviceController,
-              decoration: InputDecoration(
-                hintText: 'Ex.: Troca de pastilhas de freio dianteiras',
-                filled: true,
-                fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Atalhos de serviços mais comuns
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _commonServices.map((serviceName) {
-                final isSelected = _serviceController.text == serviceName;
-                return ChoiceChip(
-                  label: Text(serviceName, style: const TextStyle(fontSize: 12)),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _serviceController.text = selected ? serviceName : '';
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 16),
-            const Text(
-              'Observações / Sintomas (opcional)',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _notesController,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'Ex.: Barulho ao frear, carro trepida em alta velocidade...',
-                filled: true,
-                fillColor: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              onPressed: _submitQuote,
-              icon: const Icon(Icons.send_rounded, size: 20),
-              label: Text(
-                hasPhone ? 'Enviar Orçamento via WhatsApp' : 'Registrar Solicitação no App',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
             ),
           ],

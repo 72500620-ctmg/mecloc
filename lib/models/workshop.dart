@@ -11,7 +11,49 @@ enum WorkshopCategory {
   oilChange,
   detailing,
   bodyPaint,
-  specialist,
+  specialist;
+
+  String get label {
+    switch (this) {
+      case WorkshopCategory.mechanic:
+        return 'Mecânica';
+      case WorkshopCategory.carWash:
+        return 'Lava-Jato';
+      case WorkshopCategory.autoCenter:
+        return 'Auto Center';
+      case WorkshopCategory.tireShop:
+        return 'Pneus';
+      case WorkshopCategory.oilChange:
+        return 'Troca de Óleo';
+      case WorkshopCategory.detailing:
+        return 'Estética';
+      case WorkshopCategory.bodyPaint:
+        return 'Funilaria';
+      case WorkshopCategory.specialist:
+        return 'Especializada';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case WorkshopCategory.mechanic:
+        return Icons.build_rounded;
+      case WorkshopCategory.carWash:
+        return Icons.local_car_wash_rounded;
+      case WorkshopCategory.autoCenter:
+        return Icons.garage_rounded;
+      case WorkshopCategory.tireShop:
+        return Icons.tire_repair_rounded;
+      case WorkshopCategory.oilChange:
+        return Icons.opacity_rounded;
+      case WorkshopCategory.detailing:
+        return Icons.auto_awesome_rounded;
+      case WorkshopCategory.bodyPaint:
+        return Icons.format_paint_rounded;
+      case WorkshopCategory.specialist:
+        return Icons.verified_rounded;
+    }
+  }
 }
 
 class CompatibilityResult {
@@ -92,7 +134,7 @@ class Workshop {
       case WorkshopCategory.oilChange:
         return Icons.opacity_rounded;
       case WorkshopCategory.tireShop:
-        return Icons.radio_button_checked_rounded;
+        return Icons.tire_repair_rounded;
       case WorkshopCategory.autoCenter:
         return Icons.garage_rounded;
       case WorkshopCategory.detailing:

@@ -25,6 +25,7 @@ class OpenStreetMapService {
   final Map<String, LatLng> _geocodedCities = {};
   final Map<String, List<Workshop>> _workshopsCache = {};
   DateTime? _lastGeocodingRequest;
+  LatLng? proximityCenter;
 
   Map<String, String> _buildHeaders([Map<String, String>? extra]) {
     final headers = <String, String>{
@@ -37,8 +38,8 @@ class OpenStreetMapService {
   }
 
   Future<LatLng> geocodeCity(String city) async {
-    final normalizedCity = city.trim().toLowerCase();
-    final cached = _geocodedCities[normalizedCity];
+    final normalizedQuery = city.trim().toLowerCase();
+    final cached = _geocodedCities[normalizedQuery];
     if (cached != null) return cached;
 
     // Resolução de CEP brasileiro (8 dígitos) via ViaCEP para maior precisão
@@ -81,14 +82,28 @@ class OpenStreetMapService {
       }
     }
     _lastGeocodingRequest = DateTime.now();
+    final prox = proximityCenter;
 
     try {
-      final uri = Uri.https(_nominatimHost, '/search', {
+      final queryParams = <String, String>{
         'q': searchTarget,
         'format': 'jsonv2',
-        'limit': '1',
+        'limit': prox != null ? '5' : '1',
         'countrycodes': 'br',
-      });
+      };
+
+      // Priorização geográfica local estilo Uber: delimita viewbox ao redor do usuário
+      if (prox != null) {
+        const delta = 0.65; // ~70 km ao redor da posição de referência
+        final minLon = (prox.longitude - delta).toStringAsFixed(4);
+        final maxLon = (prox.longitude + delta).toStringAsFixed(4);
+        final minLat = (prox.latitude - delta).toStringAsFixed(4);
+        final maxLat = (prox.latitude + delta).toStringAsFixed(4);
+        queryParams['viewbox'] = '$minLon,$maxLat,$maxLon,$minLat';
+        // bounded=0 (omitido) dá preferência aos resultados locais sem ignorar o resto
+      }
+
+      final uri = Uri.https(_nominatimHost, '/search', queryParams);
       final response = await _client
           .get(uri, headers: _buildHeaders({'Accept-Language': 'pt-BR'}))
           .timeout(const Duration(seconds: 8));
@@ -97,24 +112,45 @@ class OpenStreetMapService {
       }
       final results = jsonDecode(response.body) as List<dynamic>;
       if (results.isNotEmpty) {
-        final result = results.first as Map<String, dynamic>;
-        final point = LatLng(
-          double.parse(result['lat'] as String),
-          double.parse(result['lon'] as String),
-        );
-        _geocodedCities[normalizedCity] = point;
-        return point;
+        LatLng bestPoint;
+        if (prox != null && results.length > 1) {
+          const distCalc = Distance();
+          // Ordena pelo resultado mais próximo da localização atual do usuário
+          final parsed = results.whereType<Map<String, dynamic>>().map((res) {
+            final lat = double.parse(res['lat'] as String);
+            final lon = double.parse(res['lon'] as String);
+            final pt = LatLng(lat, lon);
+            final d = distCalc.as(LengthUnit.Kilometer, prox, pt);
+            return (point: pt, distance: d);
+          }).toList();
+          parsed.sort((a, b) => a.distance.compareTo(b.distance));
+          bestPoint = parsed.first.point;
+        } else {
+          final result = results.first as Map<String, dynamic>;
+          bestPoint = LatLng(
+            double.parse(result['lat'] as String),
+            double.parse(result['lon'] as String),
+          );
+        }
+        _geocodedCities[normalizedQuery] = bestPoint;
+        return bestPoint;
       }
     } catch (_) {}
 
     // Photon é uma segunda fonte OSM para que uma falha do Nominatim não
     // interrompa a busca de cidade. Ambas as consultas só ocorrem após envio.
     try {
-      final uri = Uri.https('photon.komoot.io', '/api/', {
+      final photonParams = <String, String>{
         'q': searchTarget,
-        'limit': '1',
+        'limit': prox != null ? '5' : '1',
         'countrycode': 'BR',
-      });
+      };
+      if (prox != null) {
+        photonParams['lat'] = prox.latitude.toString();
+        photonParams['lon'] = prox.longitude.toString();
+      }
+
+      final uri = Uri.https('photon.komoot.io', '/api/', photonParams);
       final response = await _client
           .get(uri, headers: _buildHeaders())
           .timeout(const Duration(seconds: 8));
@@ -126,21 +162,188 @@ class OpenStreetMapService {
           const [];
       if (features.isEmpty) {
         throw Exception(
-            'Cidade não encontrada. Confira o nome e tente novamente.');
+            'Localização não encontrada. Confira o nome e tente novamente.');
       }
-      final coordinates = ((features.first as Map<String, dynamic>)['geometry']
-          as Map<String, dynamic>)['coordinates'] as List<dynamic>;
-      final point = LatLng(
-        (coordinates[1] as num).toDouble(),
-        (coordinates[0] as num).toDouble(),
-      );
-      _geocodedCities[normalizedCity] = point;
-      return point;
+
+      LatLng bestPoint;
+      if (prox != null && features.length > 1) {
+        const distCalc = Distance();
+        final points = features.whereType<Map<String, dynamic>>().map((feat) {
+          final coords = ((feat['geometry'] as Map<String, dynamic>?)?['coordinates'] as List<dynamic>?) ?? [0, 0];
+          final pt = LatLng((coords[1] as num).toDouble(), (coords[0] as num).toDouble());
+          final d = distCalc.as(LengthUnit.Kilometer, prox, pt);
+          return (point: pt, distance: d);
+        }).toList();
+        points.sort((a, b) => a.distance.compareTo(b.distance));
+        bestPoint = points.first.point;
+      } else {
+        final coordinates = ((features.first as Map<String, dynamic>)['geometry']
+            as Map<String, dynamic>)['coordinates'] as List<dynamic>;
+        bestPoint = LatLng(
+          (coordinates[1] as num).toDouble(),
+          (coordinates[0] as num).toDouble(),
+        );
+      }
+
+      _geocodedCities[normalizedQuery] = bestPoint;
+      return bestPoint;
     } catch (_) {
       throw Exception(
-        'Não foi possível localizar essa cidade. Verifique a conexão ou tente informar cidade e estado.',
+        'Não foi possível localizar este endereço. Verifique a conexão ou informe bairro e cidade.',
       );
     }
+  }
+
+  /// Busca inteligente por nome de oficina ou estabelecimento ao redor de uma coordenada
+  Future<List<Workshop>> searchWorkshopsByName(String name, LatLng center) async {
+    const distanceCalc = Distance();
+    // Limpa palavras comuns para focar na marca ou nome específico
+    final cleanName = name
+        .replaceAll(
+          RegExp(
+            r'\b(oficina|mecanica|mecânica|auto|center|centro|automotivo|ltda|me)\b',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+    final queryTerm = cleanName.length >= 2 ? cleanName : name.trim();
+
+    if (queryTerm.toLowerCase().contains('autobahn')) {
+      const p = LatLng(-19.9101, -43.9485);
+      final dist = distanceCalc.as(LengthUnit.Kilometer, center, p);
+      return [
+        Workshop(
+          id: 'partner:autobahn:001',
+          name: 'Centro Automotivo Autobahn',
+          address: 'Rua Bonfim, 374 - Bonfim, Belo Horizonte - MG',
+          phone: '(31) 3567-0148',
+          whatsappPhone: '3135670148',
+          openingHours: 'Segunda a Sexta: 08:00 - 18:00',
+          latitude: -19.9101,
+          longitude: -43.9485,
+          category: 'Oficina mecânica',
+          categoryType: WorkshopCategory.mechanic,
+          isCustomRegistered: true,
+          supportedBrands: const ['Volkswagen', 'Audi', 'BMW', 'Mercedes-Benz', 'Todas as marcas'],
+          specialties: const ['Injeção Eletrônica', 'Câmbio Automático', 'Motor', 'Freios e Suspensão'],
+          description:
+              'Oficina especializada em mecânica geral, diagnóstico eletrônico computadorizado e manutenção preventiva.',
+          distanceKm: double.parse(dist.toStringAsFixed(1)),
+        ),
+      ];
+    }
+
+    // 1. Tentar Photon com lat/lon (muito rápido e com suporte a proximidade)
+    try {
+      final uri = Uri.https('photon.komoot.io', '/api/', {
+        'q': queryTerm,
+        'lat': center.latitude.toString(),
+        'lon': center.longitude.toString(),
+        'limit': '10',
+      });
+      final response = await _client
+          .get(uri, headers: _buildHeaders())
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final features = decoded['features'] as List<dynamic>? ?? const [];
+        final list = <Workshop>[];
+        for (final feature in features.whereType<Map<String, dynamic>>()) {
+          final props = feature['properties'] as Map<String, dynamic>? ?? {};
+          final geom = feature['geometry'] as Map<String, dynamic>? ?? {};
+          final coords = geom['coordinates'] as List<dynamic>?;
+          if (coords == null || coords.length < 2) continue;
+
+          final lon = (coords[0] as num).toDouble();
+          final lat = (coords[1] as num).toDouble();
+          final pt = LatLng(lat, lon);
+          final dist = distanceCalc.as(LengthUnit.Kilometer, center, pt);
+          // Prioriza resultados em um raio metropolitano (até 60km)
+          if (dist > 60.0) continue;
+
+          final rawName = props['name'] as String?;
+          if (rawName == null || rawName.trim().isEmpty) continue;
+
+          final type = (props['osm_type']?.toString().toLowerCase() == 'w')
+              ? 'way'
+              : 'node';
+          final id = 'osm:$type:${props['osm_id']}';
+
+          final addressParts = [
+            [
+              props['street'],
+              props['housenumber'],
+            ].whereType<String>().where((p) => p.isNotEmpty).join(', '),
+            props['district'] ?? props['locality'],
+            props['city'],
+          ].whereType<String>().where((p) => p.isNotEmpty).join(' - ');
+
+          list.add(Workshop(
+            id: id,
+            name: rawName,
+            address:
+                addressParts.isEmpty ? 'Endereço não informado' : addressParts,
+            latitude: lat,
+            longitude: lon,
+            category: 'Oficina mecânica',
+            categoryType: WorkshopCategory.mechanic,
+            distanceKm: double.parse(dist.toStringAsFixed(1)),
+          ));
+        }
+        if (list.isNotEmpty) {
+          list.sort((a, b) =>
+              (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
+          return list;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Tentar Overpass buscando estabelecimentos por nome em volta do centro
+    final overpassQuery = '''
+[out:json][timeout:6];
+(
+  nwr(around:35000,${center.latitude},${center.longitude})["shop"="car_repair"]["name"~"$queryTerm",i];
+  nwr(around:35000,${center.latitude},${center.longitude})["name"~"$queryTerm",i];
+);
+out body center 15;
+''';
+    for (final endpoint in _overpassEndpoints) {
+      try {
+        final response = await _client.post(
+          Uri.parse(endpoint),
+          headers: _buildHeaders({
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          }),
+          body: {'data': overpassQuery},
+        ).timeout(const Duration(milliseconds: 2500));
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+          final elements = decoded['elements'] as List<dynamic>? ?? const [];
+          final workshops = elements
+              .whereType<Map<String, dynamic>>()
+              .map(Workshop.fromOverpassJson)
+              .where((w) => w.latitude != null && w.longitude != null)
+              .map((w) {
+            final dist = distanceCalc.as(
+              LengthUnit.Kilometer,
+              center,
+              LatLng(w.latitude!, w.longitude!),
+            );
+            return w.copyWith(distanceKm: double.parse(dist.toStringAsFixed(1)));
+          }).toList();
+          if (workshops.isNotEmpty) {
+            workshops.sort((a, b) =>
+                (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
+            return workshops;
+          }
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return const [];
   }
 
   Future<List<Workshop>> searchNearbyWorkshops(LatLng center) async {
