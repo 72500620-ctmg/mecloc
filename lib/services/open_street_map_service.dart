@@ -377,7 +377,7 @@ out body center 15;
 out body center 60;
 ''';
 
-    // Tentar endpoints Overpass em ordem com timeout ágil de 2.2s
+    // Tentar endpoints Overpass em ordem com timeout ágil de 1.2s para evitar travar a navegação
     for (final endpoint in _overpassEndpoints) {
       try {
         final response = await _client.post(
@@ -386,7 +386,7 @@ out body center 60;
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           }),
           body: {'data': query},
-        ).timeout(const Duration(milliseconds: 2200));
+        ).timeout(const Duration(milliseconds: 1200));
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body) as Map<String, dynamic>;

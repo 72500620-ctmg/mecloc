@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -39,12 +40,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // Constantes de layout do Design System
   static const double _kMapFloatingPadding = 16.0;
+  static const String _stadiaApiKey = String.fromEnvironment(
+    'STADIA_MAPS_API_KEY',
+    defaultValue: 'ab593839-51bf-4a1a-9195-a991991eab52',
+  );
   double _sheetExtent = 0.45;
   double _mapRotation = 0.0;
 
   // Busca automática inteligente ao mover o mapa
   Timer? _autoSearchDebounce;
   LatLng? _lastAutoSearchedCenter;
+  double _lastZoom = 13.0;
 
   @override
   void dispose() {
@@ -54,16 +60,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
-  void _onMapCameraMoved(LatLng newCenter) {
+  void _onMapCameraMoved(LatLng newCenter, double newZoom) {
+    // 1. Se a alteração de câmera foi apenas de zoom (sem deslocamento significativo do centro),
+    // NÃO dispara busca automática nem considera como mudança de localidade geográfica.
+    final zoomChanged = (_lastZoom - newZoom).abs() > 0.05;
+    _lastZoom = newZoom;
+
     final searchCenter = context.read<WorkshopProvider>().searchCenter;
     final reference = _lastAutoSearchedCenter ?? searchCenter;
     if (reference != null) {
       final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
-      if (dist < 1200) return; // Só dispara nova busca se moveu mais de 1.2km
+      // Se moveu menos de 1.2km, não refaz a busca
+      if (dist < 1200) return;
+    }
+
+    // Se o usuário apenas alterou o zoom sem deslocar o centro geográfico acima do limiar,
+    // não precisamos reconsultar a API de oficinas.
+    if (zoomChanged && reference != null) {
+      final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
+      if (dist < 1200) return;
     }
 
     _autoSearchDebounce?.cancel();
-    _autoSearchDebounce = Timer(const Duration(milliseconds: 700), () async {
+    _autoSearchDebounce = Timer(const Duration(milliseconds: 400), () async {
       if (!mounted) return;
       _lastAutoSearchedCenter = newCenter;
       await context
@@ -116,7 +135,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _cityController.clear();
     _usingDeviceLocation = true;
     FocusManager.instance.primaryFocus?.unfocus();
-    await context.read<WorkshopProvider>().searchWorkshops();
+    final provider = context.read<WorkshopProvider>();
+    // Se a localização do dispositivo já estiver disponível, move a câmera imediatamente sem esperar
+    if (provider.deviceLocation != null) {
+      _mapController.move(provider.deviceLocation!, 14.5);
+    }
+    await provider.searchWorkshops();
+    if (mounted && provider.deviceLocation != null) {
+      _mapController.move(provider.deviceLocation!, 14.5);
+    }
   }
 
   Future<void> _retrySearch() =>
@@ -183,7 +210,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         provider.searchCenter != _lastCentered) {
       _lastCentered = provider.searchCenter;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _mapController.move(center, 13);
+        if (!mounted) return;
+        final currentCameraCenter = _mapController.camera.center;
+        final dist = _distance.as(LengthUnit.Meter, currentCameraCenter, center);
+        // Só reposiciona a câmera se o mapa estiver distante do novo centro (ex: busca por texto ou clique em 'Minha localização')
+        // Se a busca decorreu do próprio usuário movendo a câmera na tela, não reseta a posição nem o zoom!
+        if (dist > 300) {
+          _mapController.move(center, _mapController.camera.zoom);
+        }
       });
     }
 
@@ -222,7 +256,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   });
                 }
                 if (hasGesture) {
-                  _onMapCameraMoved(camera.center);
+                  _onMapCameraMoved(camera.center, camera.zoom);
                 }
               },
               onMapReady: () {
@@ -232,31 +266,39 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: _stadiaApiKey.isNotEmpty
+                    ? (isDark
+                        ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}@2x.png?api_key=$_stadiaApiKey'
+                        : 'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}@2x.png?api_key=$_stadiaApiKey')
+                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.mecloc',
-                maxZoom: 19,
-                tileBuilder: isDark ? darkModeTileBuilder : null,
+                maxZoom: 20,
+                tileBuilder: (_stadiaApiKey.isEmpty && isDark) ? darkModeTileBuilder : null,
+              ),
+              CurrentLocationLayer(
+                style: const LocationMarkerStyle(
+                  marker: DefaultLocationMarker(
+                    color: AppColors.cobaltPrimary,
+                    child: Icon(Icons.navigation, color: Colors.white, size: 12),
+                  ),
+                  markerSize: Size(26, 26),
+                  accuracyCircleColor: Color(0x251D4ED8),
+                ),
               ),
               MarkerLayer(
                 rotate: true,
-                markers: [
-                  if (_usingDeviceLocation && provider.searchCenter != null)
-                    Marker(
-                      point: provider.searchCenter!,
-                      width: 44,
-                      height: 44,
-                      rotate: true,
-                      child: const Icon(Icons.my_location,
-                          color: AppColors.cobaltPrimary, size: 30),
-                    ),
-                  ...markers,
-                ],
+                markers: markers,
               ),
               RichAttributionWidget(attributions: [
                 TextSourceAttribution(
-                  'OpenStreetMap',
+                  _stadiaApiKey.isNotEmpty
+                      ? 'Stadia Maps © OpenMapTiles © OpenStreetMap'
+                      : 'OpenStreetMap',
                   onTap: () => launchUrl(
-                    Uri.parse('https://www.openstreetmap.org/copyright'),
+                    Uri.parse(_stadiaApiKey.isNotEmpty
+                        ? 'https://stadiamaps.com/'
+                        : 'https://www.openstreetmap.org/copyright'),
                   ),
                 ),
               ]),
@@ -566,7 +608,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   child: Tooltip(
                     message: 'Minha localização',
                     child: InkWell(
-                      onTap: provider.isLoading ? null : _searchNearby,
+                      onTap: _searchNearby,
                       child: Container(
                         width: 48,
                         height: 48,

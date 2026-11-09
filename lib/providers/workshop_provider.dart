@@ -54,6 +54,7 @@ class WorkshopProvider extends ChangeNotifier {
   String? _errorMessage;
   bool _hasSearched = false;
   LatLng? _searchCenter;
+  LatLng? _deviceLocation;
 
   String _searchQuery = '';
   WorkshopCategory? _selectedCategory;
@@ -65,6 +66,7 @@ class WorkshopProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get hasSearched => _hasSearched;
   LatLng? get searchCenter => _searchCenter;
+  LatLng? get deviceLocation => _deviceLocation;
   Set<String> get favoriteIds => _favoriteIds;
   List<String> get recentSearches => List.unmodifiable(_recentSearches);
 
@@ -230,6 +232,7 @@ class WorkshopProvider extends ChangeNotifier {
       if (effectiveQuery.trim().isEmpty) {
         final center = await _locationService.getCurrentLocation();
         if (_disposed || generation != _searchGeneration) return;
+        _deviceLocation = center;
         _searchCenter = center;
         _openStreetMapService.proximityCenter = center;
         notifyListeners();
