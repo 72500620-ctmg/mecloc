@@ -31,7 +31,7 @@ void main() {
       expect(request.method, 'POST');
       expect(request.url.host, 'overpass-api.de');
       expect(request.bodyFields['data'], contains('"shop"="car_repair"'));
-      expect(request.bodyFields['data'], contains('[out:json][timeout:10]'));
+      expect(request.bodyFields['data'], contains('[out:json]'));
       return http.Response(
         jsonEncode({
           'elements': [

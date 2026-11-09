@@ -70,19 +70,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final reference = _lastAutoSearchedCenter ?? searchCenter;
     if (reference != null) {
       final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
-      // Se moveu menos de 1.2km, não refaz a busca
-      if (dist < 1200) return;
+      // Só busca se mover mais de 2.0km da última busca (evita sobrecarga no Overpass/Stadia)
+      if (dist < 2000) return;
     }
 
     // Se o usuário apenas alterou o zoom sem deslocar o centro geográfico acima do limiar,
     // não precisamos reconsultar a API de oficinas.
     if (zoomChanged && reference != null) {
       final dist = _distance.as(LengthUnit.Meter, reference, newCenter);
-      if (dist < 1200) return;
+      if (dist < 2000) return;
     }
 
     _autoSearchDebounce?.cancel();
-    _autoSearchDebounce = Timer(const Duration(milliseconds: 400), () async {
+    _autoSearchDebounce = Timer(const Duration(milliseconds: 650), () async {
       if (!mounted) return;
       _lastAutoSearchedCenter = newCenter;
       await context

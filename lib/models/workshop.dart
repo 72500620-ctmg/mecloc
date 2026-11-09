@@ -431,6 +431,9 @@ class Workshop {
       return (WorkshopCategory.carWash, 'Lava-jato');
     }
     if (tags['shop'] == 'tyres') return (WorkshopCategory.tireShop, 'Pneus');
+    if (tags['shop'] == 'car_parts') return (WorkshopCategory.autoCenter, 'Auto Peças & Serviços');
+    if (tags['shop'] == 'car') return (WorkshopCategory.autoCenter, 'Centro Automotivo / Concessionária');
+    if (tags['shop'] == 'motorcycle_repair') return (WorkshopCategory.mechanic, 'Mecânica de Motos');
     return (WorkshopCategory.mechanic, 'Oficina mecânica');
   }
 }

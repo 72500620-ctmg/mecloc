@@ -367,21 +367,22 @@ out body center 15;
     }
 
     final query = '''
-[out:json][timeout:10];
+[out:json][timeout:15];
 (
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car_repair"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["craft"="car_repair"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["amenity"="car_wash"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="tyres"];
-  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="motorcycle_repair"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car_parts"];
+  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="car"];
+  nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["shop"="motorcycle_repair"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["service:vehicle:glass"];
   nwr(around:$_searchRadiusMeters,${center.latitude},${center.longitude})["service:vehicle:electrical"];
 );
-out body center 150;
+out center tags 200;
 ''';
 
-    // Tentar endpoints Overpass em ordem com timeout ágil de 1.2s para evitar travar a navegação
+    // Tentar endpoints Overpass em ordem com timeout resiliente de 3.5s
     for (final endpoint in _overpassEndpoints) {
       try {
         final response = await _client.post(
@@ -390,7 +391,7 @@ out body center 150;
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           }),
           body: {'data': query},
-        ).timeout(const Duration(milliseconds: 1200));
+        ).timeout(const Duration(milliseconds: 3500));
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body) as Map<String, dynamic>;
