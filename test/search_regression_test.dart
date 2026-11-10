@@ -511,4 +511,52 @@ void main() {
     await provider.searchWorkshops(customCenter: center, forceRefresh: true);
     expect(provider.getFilteredWorkshops(null).single.id, 'osm:node:1');
   });
+
+  test(
+      'nome inexistente na região retorna vazio quando Overpass falha e fallbacks respondem',
+      () async {
+    final service = OpenStreetMapService(
+        client: MockClient((request) async {
+      if (request.method == 'POST') {
+        return overpass([], remark: 'runtime error: Query timed out');
+      }
+      if (request.url.host.contains('nominatim')) {
+        return http.Response('[]', 200);
+      }
+      return photon([]);
+    }));
+    addTearDown(service.dispose);
+    final result =
+        await service.searchWorkshopsByName('mecanica quantica', center);
+    expect(result, isEmpty);
+    expect((result as WorkshopSearchResult).isComplete, isFalse);
+  });
+
+  test('busca por nome ainda falha quando nenhuma fonte responde', () async {
+    final service = OpenStreetMapService(
+        client: MockClient((_) async => http.Response('erro', 503)));
+    addTearDown(service.dispose);
+    await expectLater(
+        service.searchWorkshopsByName('mecanica quantica', center),
+        throwsException);
+  });
+
+  test('nome sem resultados e que não é cidade mostra lista vazia sem erro',
+      () async {
+    final fake = _NoCityDiscovery();
+    final provider = WorkshopProvider(openStreetMapService: fake);
+    addTearDown(provider.dispose);
+    await provider.initialize(searchOnStart: false);
+    await provider.searchWorkshops(customCenter: center);
+    await provider.searchWorkshops(query: 'mecanica quantica');
+    expect(fake.nameCalls, 1);
+    expect(provider.errorMessage, isNull);
+    expect(provider.workshops, isEmpty);
+  });
+}
+
+class _NoCityDiscovery extends FakeDiscovery {
+  @override
+  Future<LatLng> geocodeCity(String city) async =>
+      throw Exception('Local não encontrado.');
 }

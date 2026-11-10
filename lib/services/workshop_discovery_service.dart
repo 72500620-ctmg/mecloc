@@ -88,17 +88,25 @@ class WorkshopDiscoveryService {
         if (_disposed) rethrow;
       }
     }
-    final fallback =
-        await _searchNominatimMatches(center, 35000, name: name, epoch: epoch);
+    // Uma fonte que respondeu sem correspondências é um resultado vazio
+    // legítimo (nome inexistente na região), não uma falha de consulta.
+    var fallbackAnswered = false;
+    void answered() => fallbackAnswered = true;
+    final fallback = await _searchNominatimMatches(center, 35000,
+        name: name, epoch: epoch, onAnswered: answered);
     if (fallback.isEmpty) {
-      fallback.addAll(
-          await _searchPhoton(center, 35000, terms: [name], epoch: epoch));
+      fallback.addAll(await _searchPhoton(center, 35000,
+          terms: [name], epoch: epoch, onAnswered: answered));
     }
+    _ensureCurrent(epoch);
     for (final w in fallback) {
       byId.putIfAbsent(w.id, () => w);
     }
     if (byId.isEmpty) {
       if (completeNameQuery) return WorkshopSearchResult(const []);
+      if (fallbackAnswered) {
+        return WorkshopSearchResult(const [], isComplete: false);
+      }
       throw Exception(
           'Não foi possível consultar os estabelecimentos por nome. Tente novamente.');
     }
@@ -371,7 +379,8 @@ class WorkshopDiscoveryService {
       {SearchBounds? box,
       String? name,
       required int epoch,
-      void Function(List<Workshop>)? onProgress}) async {
+      void Function(List<Workshop>)? onProgress,
+      void Function()? onAnswered}) async {
     const endpoint = 'https://nominatim.openstreetmap.org/search';
     if (!_endpointReady(endpoint)) return [];
     final latDelta = radius / 111320;
@@ -411,6 +420,7 @@ class WorkshopDiscoveryService {
         }
         final decoded = jsonDecode(response.body);
         if (decoded is! List) break;
+        onAnswered?.call();
         for (final item in decoded.whereType<Map<String, dynamic>>()) {
           try {
             final category = (item['category'] ?? item['class'])?.toString();
@@ -463,6 +473,7 @@ class WorkshopDiscoveryService {
     SearchBounds? box,
     required int epoch,
     void Function(List<Workshop>)? onProgress,
+    void Function()? onAnswered,
   }) async {
     final latDelta = radius / 111320;
     final lonDelta =
@@ -496,6 +507,7 @@ class WorkshopDiscoveryService {
           break;
         }
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        onAnswered?.call();
         final workshops = <Workshop>[];
         for (final feature in (decoded['features'] as List<dynamic>? ?? [])
             .whereType<Map<String, dynamic>>()) {

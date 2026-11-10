@@ -335,11 +335,13 @@ class WorkshopProvider extends ChangeNotifier {
         return;
       }
       Object? nameFailure;
+      var nameSearchAnswered = false;
       if (reference != null) {
         try {
           final results = await _openStreetMapService.searchWorkshopsByName(
               term, reference);
           if (stale()) return;
+          nameSearchAnswered = true;
           if (results.isNotEmpty) {
             _setSearchArea(reference, radius: 35000);
             _acceptResults(results);
@@ -353,6 +355,8 @@ class WorkshopProvider extends ChangeNotifier {
             _selectedWorkshop = localMatches.first;
             return;
           }
+        } on DiscoveryCancelled {
+          rethrow;
         } catch (error) {
           nameFailure = error;
         }
@@ -363,6 +367,17 @@ class WorkshopProvider extends ChangeNotifier {
         _openStreetMapService.proximityCenter = reference;
         center = await _openStreetMapService.geocodeCity(term);
       } catch (error) {
+        if (stale()) return;
+        // O nome foi consultado com sucesso e o termo também não é um local:
+        // a busca terminou sem correspondências, o que não é um erro.
+        if (nameSearchAnswered && reference != null) {
+          _setSearchArea(reference, radius: 35000);
+          _workshops = [];
+          _searchNotice = null;
+          _resultsStale = false;
+          _selectedWorkshop = null;
+          return;
+        }
         throw nameFailure ?? error;
       }
       if (stale()) return;
