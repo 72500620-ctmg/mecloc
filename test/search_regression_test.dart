@@ -511,4 +511,137 @@ void main() {
     await provider.searchWorkshops(customCenter: center, forceRefresh: true);
     expect(provider.getFilteredWorkshops(null).single.id, 'osm:node:1');
   });
+
+  test(
+      'nome inexistente na região retorna vazio quando Overpass falha e fallbacks respondem',
+      () async {
+    final service = OpenStreetMapService(client: MockClient((request) async {
+      if (request.method == 'POST') {
+        return overpass([], remark: 'runtime error: Query timed out');
+      }
+      if (request.url.host.contains('nominatim')) {
+        return http.Response('[]', 200);
+      }
+      return photon([]);
+    }));
+    addTearDown(service.dispose);
+    final result =
+        await service.searchWorkshopsByName('mecanica quantica', center);
+    expect(result, isEmpty);
+    expect((result as WorkshopSearchResult).isComplete, isFalse);
+  });
+
+  test('busca por nome ainda falha quando nenhuma fonte responde', () async {
+    final service = OpenStreetMapService(
+        client: MockClient((_) async => http.Response('erro', 503)));
+    addTearDown(service.dispose);
+    await expectLater(
+        service.searchWorkshopsByName('mecanica quantica', center),
+        throwsException);
+  });
+
+  test('nome sem resultados e que não é cidade mostra lista vazia sem erro',
+      () async {
+    final fake = _NoCityDiscovery();
+    final provider = WorkshopProvider(openStreetMapService: fake);
+    addTearDown(provider.dispose);
+    await provider.initialize(searchOnStart: false);
+    await provider.searchWorkshops(customCenter: center);
+    await provider.searchWorkshops(query: 'mecanica quantica');
+    expect(fake.nameCalls, 1);
+    expect(provider.errorMessage, isNull);
+    expect(provider.workshops, isEmpty);
+  });
+
+  test(
+      'busca por nome encontra oficina fora da região do mapa e ignora outros países',
+      () async {
+    const saoPaulo = LatLng(-23.55, -46.63);
+    final photonUris = <Uri>[];
+    final service = OpenStreetMapService(client: MockClient((request) async {
+      if (request.method == 'POST') return overpass([]);
+      if (request.url.host.contains('photon')) {
+        photonUris.add(request.url);
+        final abroad = feature(2, 'shop', 'car_repair', 'Auto Paulista Lisboa',
+            point: const LatLng(38.72, -9.14));
+        (abroad['properties'] as Map<String, dynamic>)['countrycode'] = 'PT';
+        final brazil =
+            feature(1, 'shop', 'car_repair', 'Auto Paulista', point: saoPaulo);
+        (brazil['properties'] as Map<String, dynamic>)['countrycode'] = 'BR';
+        return photon([brazil, abroad]);
+      }
+      return http.Response('[]', 200);
+    }));
+    addTearDown(service.dispose);
+    final result = await service.searchWorkshopsByName('Auto Paulista', center);
+    expect(result.map((w) => w.id), ['osm:node:1']);
+    expect(result.single.distanceKm, greaterThan(400));
+    expect(photonUris.where((u) => !u.queryParameters.containsKey('bbox')),
+        hasLength(1));
+  });
+
+  test(
+      'busca por nome mantém as oficinas próximas mesmo quando a global só traz outras cidades',
+      () async {
+    const saoPaulo = LatLng(-23.55, -46.63);
+    const nearby = LatLng(-19.93, -43.95);
+    final service = OpenStreetMapService(client: MockClient((request) async {
+      if (request.method == 'POST') {
+        return overpass([], remark: 'runtime error: Query timed out');
+      }
+      if (request.url.host.contains('photon')) {
+        // Busca regional (com bbox) traz a oficina próxima; a global, por
+        // relevância, só traz oficinas de outras cidades.
+        return request.url.queryParameters.containsKey('bbox')
+            ? photon(
+                [feature(1, 'shop', 'car_repair', 'Pneus Rei', point: nearby)])
+            : photon([
+                feature(2, 'shop', 'tyres', 'Pneus Rei', point: saoPaulo),
+                feature(3, 'shop', 'tyres', 'Pneus Rei',
+                    point: const LatLng(-22.90, -43.20)),
+              ]);
+      }
+      return http.Response('[]', 200);
+    }));
+    addTearDown(service.dispose);
+    final result = await service.searchWorkshopsByName('Pneus Rei', center);
+    expect(result.map((w) => w.id), ['osm:node:1', 'osm:node:3', 'osm:node:2']);
+  });
+
+  test(
+      'resultado distante da busca por nome não é removido pelo filtro de área',
+      () async {
+    const saoPaulo = LatLng(-23.55, -46.63);
+    final fake = FakeDiscovery()
+      ..named = [workshop(9, name: 'Auto Paulista', point: saoPaulo)];
+    final provider = WorkshopProvider(openStreetMapService: fake);
+    addTearDown(provider.dispose);
+    await provider.initialize(searchOnStart: false);
+    await provider.searchWorkshops(customCenter: center);
+    await provider.searchWorkshops(query: 'Auto Paulista');
+    expect(provider.errorMessage, isNull);
+    expect(provider.getFilteredWorkshops(null).single.id, 'osm:node:9');
+    expect(provider.selectedWorkshop?.id, 'osm:node:9');
+  });
+
+  test('oficina cadastrada no app é encontrada pelo nome em outra região',
+      () async {
+    const saoPaulo = LatLng(-23.55, -46.63);
+    final fake = FakeDiscovery();
+    final provider = WorkshopProvider(openStreetMapService: fake);
+    addTearDown(provider.dispose);
+    await provider.initialize(searchOnStart: false);
+    await provider.searchWorkshops(customCenter: center);
+    await provider.registerCustomWorkshop(
+        workshop(8, name: 'Garagem Paulista', point: saoPaulo));
+    await provider.searchWorkshops(query: 'Garagem Paulista');
+    expect(provider.getFilteredWorkshops(null).map((w) => w.id),
+        contains('osm:node:8'));
+  });
+}
+
+class _NoCityDiscovery extends FakeDiscovery {
+  @override
+  Future<LatLng> geocodeCity(String city) async =>
+      throw Exception('Local não encontrado.');
 }
