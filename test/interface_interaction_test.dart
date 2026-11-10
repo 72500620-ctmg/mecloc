@@ -1,0 +1,174 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mecloc/main.dart';
+import 'package:mecloc/models/workshop.dart';
+import 'package:mecloc/providers/auth_provider.dart';
+import 'package:mecloc/providers/quotes_provider.dart';
+import 'package:mecloc/providers/theme_provider.dart';
+import 'package:mecloc/providers/vehicle_provider.dart';
+import 'package:mecloc/providers/workshop_provider.dart';
+import 'package:mecloc/screens/favorites_screen.dart';
+import 'package:mecloc/theme/app_theme.dart';
+import 'package:mecloc/widgets/workshop_detail_sheet.dart';
+import 'package:mecloc/widgets/workshop_list_tile.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _mechanic = Workshop(
+  id: 'favorite-mechanic',
+  name: 'Mecânica São José',
+  address: 'Centro',
+);
+const _tires = Workshop(
+  id: 'favorite-tires',
+  name: 'Pneus Avenida',
+  address: 'Savassi',
+  category: 'Pneus',
+  categoryType: WorkshopCategory.tireShop,
+);
+
+Future<WorkshopProvider> _mount(WidgetTester tester,
+    {Size size = const Size(390, 844),
+    bool dark = false,
+    double scale = 1,
+    List<Workshop> cachedWorkshops = const []}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  SharedPreferences.setMockInitialValues({
+    if (cachedWorkshops.isNotEmpty)
+      'custom_registered_workshops_v1':
+          cachedWorkshops.map((w) => jsonEncode(w.toJson())).toList(),
+  });
+  final workshops = WorkshopProvider();
+  final theme = ThemeProvider();
+  await workshops.initialize(searchOnStart: false);
+  await theme.initialize();
+  if (dark) await theme.setThemeMode(ThemeMode.dark);
+  await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: workshops),
+        ChangeNotifierProvider.value(value: theme),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => VehicleProvider()),
+        ChangeNotifierProvider(create: (_) => QuotesProvider()),
+      ],
+      child: Builder(
+          builder: (context) => MediaQuery(
+                data: MediaQueryData(
+                    size: size,
+                    textScaler: TextScaler.linear(scale),
+                    disableAnimations: true),
+                child: const MecLocApp(),
+              ))));
+  addTearDown(workshops.dispose);
+  addTearDown(theme.dispose);
+  await tester.pumpAndSettle();
+  return workshops;
+}
+
+void main() {
+  testWidgets('favoritos vazios oferecem retorno funcional para o mapa',
+      (tester) async {
+    await _mount(tester);
+    await tester.tap(find.text('Favoritos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Explorar oficinas'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Minha localização'), findsOneWidget);
+    expect(find.byType(FavoritesScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('favoritos buscam por nome sem acento e endereço',
+      (tester) async {
+    final workshops = await _mount(tester);
+    await workshops.toggleFavorite(_mechanic.id, _mechanic);
+    await workshops.toggleFavorite(_tires.id, _tires);
+    await tester.tap(find.text('Favoritos'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'sao jose');
+    await tester.pumpAndSettle();
+    expect(find.text(_mechanic.name), findsOneWidget);
+    expect(find.text(_tires.name), findsNothing);
+    await tester.enterText(find.byType(TextField), 'savassi');
+    await tester.pumpAndSettle();
+    expect(find.text(_tires.name), findsOneWidget);
+    expect(find.text(_mechanic.name), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('salvar um card não abre seus detalhes e permite desfazer',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final workshops = WorkshopProvider();
+    await workshops.initialize(searchOnStart: false);
+    addTearDown(workshops.dispose);
+    await tester.pumpWidget(ChangeNotifierProvider.value(
+        value: workshops,
+        child: MaterialApp(
+            theme: AppTheme.light,
+            home:
+                const Scaffold(body: WorkshopListTile(workshop: _mechanic)))));
+    await tester.tap(find.byTooltip('Salvar nos favoritos'));
+    await tester.pumpAndSettle();
+    expect(workshops.isFavorite(_mechanic.id), isTrue);
+    expect(find.byType(WorkshopDetailSheet), findsNothing);
+    await tester.tap(find.byTooltip('Remover dos favoritos'));
+    await tester.pumpAndSettle();
+    expect(workshops.isFavorite(_mechanic.id), isFalse);
+  });
+
+  testWidgets('oficina salva centraliza mapa sem GPS', (tester) async {
+    await _mount(tester, size: const Size(1024, 768), cachedWorkshops: const [
+      Workshop(
+          id: 'cached-center',
+          name: 'Oficina da região',
+          address: 'Centro',
+          latitude: -19.92,
+          longitude: -43.94,
+          isCustomRegistered: true),
+    ]);
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    expect(map.mapController!.camera.center.latitude, closeTo(-19.92, 0.001));
+    expect(map.mapController!.camera.center.longitude, closeTo(-43.94, 0.001));
+    expect(map.mapController!.camera.zoom, greaterThan(13));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filtro pode trocar de serviço sem voltar ao início',
+      (tester) async {
+    final workshops = await _mount(tester, size: const Size(1440, 900));
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(DraggableScrollableSheet), findsNothing);
+    await tester.tap(find.widgetWithText(FilterChip, 'Mecânica'));
+    await tester.pumpAndSettle();
+    expect(workshops.selectedCategory, WorkshopCategory.mechanic);
+    await tester.ensureVisible(find.widgetWithText(FilterChip, 'Pneus'));
+    await tester.tap(find.widgetWithText(FilterChip, 'Pneus'));
+    await tester.pumpAndSettle();
+    expect(workshops.selectedCategory, WorkshopCategory.tireShop);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final size in [
+    const Size(320, 568),
+    const Size(390, 844),
+    const Size(768, 1024),
+    const Size(1024, 768)
+  ]) {
+    for (final dark in [false, true]) {
+      testWidgets('layout sem overflow em $size, escuro=$dark', (tester) async {
+        await _mount(tester, size: size, dark: dark);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Favoritos'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+}

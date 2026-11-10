@@ -5,13 +5,13 @@ class AppRadii {
   static const pill = 999.0;
   static const card = 16.0;
   static const modal = 24.0;
-  static const floating = 28.0;
+  static const floating = 18.0;
   static const sheet = 28.0;
   static const button = 14.0;
   static const chip = 10.0;
 }
 
-/// Paleta de cores moderna, acessível e com identidade automotiva tech
+/// Azul MecLoc, grafite e neutros com contraste para leitura sobre o mapa.
 class AppColors {
   // Primária: Azul Cobalto Automotivo (precisão, confiabilidade e alta legibilidade)
   static const cobaltPrimary = Color(0xFF0A58CA);
@@ -20,11 +20,11 @@ class AppColors {
   static const cobaltLuminous = Color(0xFF60A5FA);
 
   // Neutros Claros (Clean Slate)
-  static const slateCanvas = Color(0xFFF8FAFC);
+  static const slateCanvas = Color(0xFFF5F6F8);
   static const slateCard = Color(0xFFFFFFFF);
   static const slateBorder = Color(0xFFE2E8F0);
-  static const slateMuted = Color(0xFF64748B);
-  static const slateInk = Color(0xFF0F172A);
+  static const slateMuted = Color(0xFF596579);
+  static const slateInk = Color(0xFF17202E);
 
   // Neutros Escuros (OLED Midnight Zinc - estilo Apple / Uber Dark, conforto visual)
   static const darkCanvas = Color(0xFF0F1013);
@@ -182,6 +182,7 @@ class AppTheme {
       onSecondary: Colors.white,
       surface: AppColors.slateCard,
       onSurface: AppColors.slateInk,
+      onSurfaceVariant: AppColors.slateMuted,
       surfaceContainerHighest: const Color(0xFFF1F5F9),
       outline: AppColors.slateBorder,
       outlineVariant: const Color(0xFFCBD5E1),
@@ -189,7 +190,7 @@ class AppTheme {
       onError: Colors.white,
     );
 
-    return ThemeData(
+    return _refine(ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: scheme,
@@ -315,7 +316,7 @@ class AppTheme {
           );
         }),
       ),
-    );
+    ));
   }
 
   static ThemeData get dark {
@@ -331,6 +332,7 @@ class AppTheme {
       onSecondary: Colors.black,
       surface: AppColors.darkCard,
       onSurface: const Color(0xFFF8FAFC),
+      onSurfaceVariant: const Color(0xFFAFB8C8),
       surfaceContainerHighest: AppColors.darkSubtle,
       outline: AppColors.darkBorder,
       outlineVariant: const Color(0xFF383C48),
@@ -338,7 +340,7 @@ class AppTheme {
       onError: Colors.white,
     );
 
-    return ThemeData(
+    return _refine(ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: scheme,
@@ -464,6 +466,60 @@ class AppTheme {
           );
         }),
       ),
+    ));
+  }
+
+  static ThemeData _refine(ThemeData theme) {
+    final colors = theme.colorScheme;
+    return theme.copyWith(
+      textTheme: theme.textTheme.copyWith(
+        titleLarge: TextStyle(
+            fontSize: 22,
+            height: 1.25,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.6,
+            color: colors.onSurface),
+        titleMedium: TextStyle(
+            fontSize: 17,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+            color: colors.onSurface),
+        titleSmall: TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w700, color: colors.onSurface),
+        bodyMedium:
+            TextStyle(fontSize: 14, height: 1.5, color: colors.onSurface),
+      ),
+      appBarTheme: theme.appBarTheme.copyWith(
+        toolbarHeight: 72,
+        scrolledUnderElevation: 0,
+        titleSpacing: 24,
+      ),
+      dividerTheme:
+          DividerThemeData(color: colors.outline, thickness: 1, space: 1),
+      iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
+      textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      )),
+      navigationRailTheme: NavigationRailThemeData(
+        indicatorColor: colors.primaryContainer,
+        selectedIconTheme: IconThemeData(color: colors.primary),
+        unselectedIconTheme: IconThemeData(color: colors.onSurfaceVariant),
+        selectedLabelTextStyle: TextStyle(
+            color: colors.primary, fontSize: 11, fontWeight: FontWeight.w700),
+        unselectedLabelTextStyle:
+            TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.button)),
+      ),
+      tooltipTheme:
+          const TooltipThemeData(waitDuration: Duration(milliseconds: 400)),
     );
   }
 }

@@ -6,6 +6,7 @@ import '../models/quote_request.dart';
 import '../providers/quotes_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_page_body.dart';
 import '../widgets/whatsapp_quote_modal.dart';
 
 class QuotesScreen extends StatefulWidget {
@@ -16,12 +17,15 @@ class QuotesScreen extends StatefulWidget {
 }
 
 class _QuotesScreenState extends State<QuotesScreen> {
-  String _selectedFilter = 'all'; // 'all', 'sent_whatsapp', 'scheduled', 'completed'
+  String _selectedFilter =
+      'all'; // 'all', 'sent_whatsapp', 'scheduled', 'completed'
 
   List<QuoteRequest> _filterQuotes(List<QuoteRequest> quotes) {
     if (_selectedFilter == 'all') return quotes;
     if (_selectedFilter == 'sent_whatsapp') {
-      return quotes.where((q) => q.status == 'sent_whatsapp' || q.status == 'pending').toList();
+      return quotes
+          .where((q) => q.status == 'sent_whatsapp' || q.status == 'pending')
+          .toList();
     }
     return quotes.where((q) => q.status == _selectedFilter).toList();
   }
@@ -30,14 +34,16 @@ class _QuotesScreenState extends State<QuotesScreen> {
     final phone = quote.workshopPhone?.trim();
     if (phone == null || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Esta oficina não possui WhatsApp cadastrado.')),
+        const SnackBar(
+            content: Text('Esta oficina não possui WhatsApp cadastrado.')),
       );
       return;
     }
     final digits = QuotesProvider.formatPhoneForWhatsApp(phone);
     final uri = Uri.parse('https://wa.me/$digits');
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
@@ -59,7 +65,8 @@ class _QuotesScreenState extends State<QuotesScreen> {
     if (workshops.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Pesquise e selecione uma oficina no mapa para pedir orçamento.'),
+          content: Text(
+              'Pesquise e selecione uma oficina no mapa para pedir orçamento.'),
         ),
       );
       return;
@@ -91,10 +98,13 @@ class _QuotesScreenState extends State<QuotesScreen> {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
-                        backgroundColor: w.categoryColor.withValues(alpha: 0.15),
-                        child: Icon(w.iconData, color: w.categoryColor, size: 20),
+                        backgroundColor:
+                            w.categoryColor.withValues(alpha: 0.15),
+                        child:
+                            Icon(w.iconData, color: w.categoryColor, size: 20),
                       ),
-                      title: Text(w.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      title: Text(w.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: Text(
                         w.address,
                         maxLines: 1,
@@ -133,18 +143,15 @@ class _QuotesScreenState extends State<QuotesScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: AppPageBody(
+          child: Column(
         children: [
           // Banner explicativo
           Container(
             margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [const Color(0xFF162E28), const Color(0xFF10201C)]
-                    : [const Color(0xFF1B5E20), const Color(0xFF2E7D32)],
-              ),
+              color: AppColors.slateInk,
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Row(
@@ -219,13 +226,15 @@ class _QuotesScreenState extends State<QuotesScreen> {
                           const SizedBox(height: 16),
                           const Text(
                             'Nenhuma cotação encontrada',
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                            style: TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 6),
                           const Text(
                             'Solicite orçamentos diretamente na página de qualquer oficina ou crie uma nova agora.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: AppColors.muted, fontSize: 13),
+                            style:
+                                TextStyle(color: AppColors.muted, fontSize: 13),
                           ),
                           const SizedBox(height: 18),
                           FilledButton.icon(
@@ -251,7 +260,9 @@ class _QuotesScreenState extends State<QuotesScreen> {
                         onDelete: () {
                           quotesProvider.removeQuote(quote.id);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Cotação excluída do histórico.')),
+                            const SnackBar(
+                                content:
+                                    Text('Cotação excluída do histórico.')),
                           );
                         },
                       );
@@ -259,7 +270,7 @@ class _QuotesScreenState extends State<QuotesScreen> {
                   ),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -312,12 +323,15 @@ class _QuoteCard extends StatelessWidget {
                   children: [
                     Text(
                       quote.workshopName,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 16),
                     ),
-                    if (quote.workshopAddress != null && quote.workshopAddress!.isNotEmpty)
+                    if (quote.workshopAddress != null &&
+                        quote.workshopAddress!.isNotEmpty)
                       Text(
                         quote.workshopAddress!,
-                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.muted),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -329,7 +343,8 @@ class _QuoteCard extends StatelessWidget {
                 initialValue: quote.status,
                 onSelected: onUpdateStatus,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: quote.statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
@@ -346,7 +361,8 @@ class _QuoteCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.arrow_drop_down, size: 16, color: quote.statusColor),
+                      Icon(Icons.arrow_drop_down,
+                          size: 16, color: quote.statusColor),
                     ],
                   ),
                 ),
@@ -378,12 +394,14 @@ class _QuoteCard extends StatelessWidget {
           // Detalhes do serviço e veículo
           Row(
             children: [
-              const Icon(Icons.build_rounded, size: 16, color: AppColors.forest),
+              const Icon(Icons.build_rounded,
+                  size: 16, color: AppColors.forest),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   quote.serviceName,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14),
                 ),
               ),
             ],
@@ -391,12 +409,14 @@ class _QuoteCard extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.directions_car_rounded, size: 16, color: AppColors.muted),
+              const Icon(Icons.directions_car_rounded,
+                  size: 16, color: AppColors.muted),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   quote.vehicleDetails ?? quote.vehicleName,
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                  style:
+                      const TextStyle(fontSize: 12.5, color: AppColors.muted),
                 ),
               ),
             ],
@@ -406,12 +426,14 @@ class _QuoteCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.notes_rounded, size: 16, color: AppColors.muted),
+                const Icon(Icons.notes_rounded,
+                    size: 16, color: AppColors.muted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     quote.notes!,
-                    style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                    style: const TextStyle(
+                        fontSize: 12, fontStyle: FontStyle.italic),
                   ),
                 ),
               ],
@@ -422,22 +444,32 @@ class _QuoteCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.03),
+                color: isDark
+                    ? Colors.white10
+                    : Colors.black.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Text('Oficina respondeu?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text('Oficina respondeu?',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   TextButton(
-                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact),
                     onPressed: () => onUpdateStatus('scheduled'),
-                    child: const Text('Agendei', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                    child: const Text('Agendei',
+                        style: TextStyle(
+                            fontSize: 11.5, fontWeight: FontWeight.w700)),
                   ),
                   TextButton(
-                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact),
                     onPressed: () => onUpdateStatus('completed'),
-                    child: const Text('Concluí', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                    child: const Text('Concluí',
+                        style: TextStyle(
+                            fontSize: 11.5, fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),
@@ -448,19 +480,22 @@ class _QuoteCard extends StatelessWidget {
           // Botões de ação
           Row(
             children: [
-              if (quote.workshopPhone != null && quote.workshopPhone!.trim().isNotEmpty)
+              if (quote.workshopPhone != null &&
+                  quote.workshopPhone!.trim().isNotEmpty)
                 Expanded(
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF25D366),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: onReopenWhatsApp,
                     icon: const Icon(Icons.chat_bubble_rounded, size: 16),
                     label: const Text(
                       'Abrir WhatsApp',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ),
                 )
@@ -474,7 +509,8 @@ class _QuoteCard extends StatelessWidget {
               const SizedBox(width: 8),
               IconButton(
                 tooltip: 'Excluir do histórico',
-                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.muted, size: 20),
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: AppColors.muted, size: 20),
                 onPressed: onDelete,
               ),
             ],
