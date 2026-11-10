@@ -804,7 +804,10 @@ class _ExploreScreenState extends State<ExploreScreen>
                   },
                   child: DraggableScrollableSheet(
                     initialChildSize: 0.55,
-                    minChildSize: 0.16,
+                    minChildSize: ((MediaQuery.paddingOf(context).bottom + 52) /
+                            math.max(
+                                1.0, constraints.maxHeight - topInset - panelTop))
+                        .clamp(0.16, 0.40),
                     maxChildSize: 0.92,
                     // Um gesto curto perto da borda não deve abrir o painel
                     // até 55% enquanto a pessoa está explorando o mapa.
@@ -989,7 +992,7 @@ class _ExploreScreenState extends State<ExploreScreen>
     return ListView(
       controller: scrollController,
       padding: EdgeInsets.only(
-        bottom: 24 + MediaQuery.viewPaddingOf(context).bottom,
+        bottom: 24 + MediaQuery.paddingOf(context).bottom,
       ),
       children: [
         if (!desktop)

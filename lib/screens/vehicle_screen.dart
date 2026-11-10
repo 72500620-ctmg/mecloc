@@ -231,7 +231,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
           child: !isAuthenticated
               ? _buildGuestScreen(context, isDark)
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                  padding: EdgeInsets.fromLTRB(
+                      24, 8, 24, 32 + MediaQuery.paddingOf(context).bottom),
                   children: [
                     // Banner informativo
                     Container(
@@ -761,7 +762,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
 
   Widget _buildGuestScreen(BuildContext context, bool isDark) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      padding: EdgeInsets.fromLTRB(
+          24, 12, 24, 32 + MediaQuery.paddingOf(context).bottom),
       children: [
         // Hero Card
         Container(

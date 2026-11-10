@@ -29,3 +29,5 @@ key.properties
 *.jks
 *.keystore
 diagnostics/
+
+.agents

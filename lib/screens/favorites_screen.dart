@@ -34,12 +34,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           constraints: const BoxConstraints(maxWidth: 760),
           child: saved.isEmpty
               ? LayoutBuilder(
-                  builder: (context, constraints) => SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                              minHeight: (constraints.maxHeight - 64)
-                                  .clamp(0, double.infinity)),
+                  builder: (context, constraints) {
+                    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                          28, 32, 28, 32 + bottomPadding),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                            minHeight:
+                                (constraints.maxHeight - 64 - bottomPadding)
+                                    .clamp(0, double.infinity)),
                           child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -78,7 +82,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                     label: const Text('Explorar oficinas')),
                               ]),
                         ),
-                      ))
+                      );
+                    })
               : ListView(children: [
                   Padding(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),

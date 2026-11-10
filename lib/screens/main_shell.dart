@@ -71,6 +71,7 @@ class _MainShellState extends State<MainShell> {
     ]);
 
     return Scaffold(
+      extendBody: true,
       body: Row(children: [
         if (wide) ...[
           NavigationRail(
@@ -101,9 +102,9 @@ class _MainShellState extends State<MainShell> {
           : SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Material(
-                  elevation: 4,
+                  elevation: 6,
                   shadowColor: colors.shadow.withValues(alpha: 0.16),
                   color: Theme.of(context).navigationBarTheme.backgroundColor,
                   shape: RoundedRectangleBorder(

@@ -89,6 +89,12 @@ void main() {
           ? (foreground + 0.05) / (surface + 0.05)
           : (surface + 0.05) / (foreground + 0.05);
       expect(contrast, greaterThanOrEqualTo(4.5));
+      final shellScaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      expect(shellScaffold.extendBody, isTrue);
+      final sheetRect = tester.getRect(find.byType(ListView).first);
+      expect(sheetRect.bottom, closeTo(844, 1));
+      final navRect = tester.getRect(nav);
+      expect(navRect.bottom, lessThan(844));
     });
   }
 

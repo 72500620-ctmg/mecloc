@@ -79,7 +79,8 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: AppPageBody(
           child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+        padding: EdgeInsets.fromLTRB(
+            24, 8, 24, 32 + MediaQuery.paddingOf(context).bottom),
         children: [
           // Card de Usuário
           Container(
