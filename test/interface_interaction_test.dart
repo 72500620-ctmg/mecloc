@@ -11,6 +11,7 @@ import 'package:mecloc/providers/theme_provider.dart';
 import 'package:mecloc/providers/vehicle_provider.dart';
 import 'package:mecloc/providers/workshop_provider.dart';
 import 'package:mecloc/screens/favorites_screen.dart';
+import 'package:mecloc/screens/profile_screen.dart';
 import 'package:mecloc/theme/app_theme.dart';
 import 'package:mecloc/widgets/workshop_detail_sheet.dart';
 import 'package:mecloc/widgets/workshop_list_tile.dart';
@@ -72,6 +73,36 @@ Future<WorkshopProvider> _mount(WidgetTester tester,
 }
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets('navegação segue o papel de superfície do tema escuro=$dark',
+        (tester) async {
+      await _mount(tester, dark: dark);
+      final nav = find.byType(NavigationBar);
+      final scheme = Theme.of(tester.element(nav)).colorScheme;
+      final background =
+          NavigationBarTheme.of(tester.element(nav)).backgroundColor;
+      expect(background, dark ? scheme.surfaceContainer : scheme.surface);
+      final ink = dark ? scheme.onSurface : scheme.primary;
+      final foreground = ink.computeLuminance();
+      final surface = background!.computeLuminance();
+      final contrast = (foreground > surface)
+          ? (foreground + 0.05) / (surface + 0.05)
+          : (surface + 0.05) / (foreground + 0.05);
+      expect(contrast, greaterThanOrEqualTo(4.5));
+    });
+  }
+
+  testWidgets('ícones do perfil seguem a cor primária no tema escuro',
+      (tester) async {
+    await _mount(tester, dark: true);
+    await tester.tap(find.text('Perfil').last);
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(ProfileScreen));
+    final icon = tester.widget<Icon>(find.byIcon(Icons.login_rounded).first);
+    expect(icon.color, Theme.of(context).colorScheme.primary);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('favoritos vazios oferecem retorno funcional para o mapa',
       (tester) async {
     await _mount(tester);

@@ -782,7 +782,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 bottom: 16,
                 width: 376,
                 child: Material(
-                  color: isDark ? AppColors.darkCard : AppColors.slateCanvas,
+                  color: Theme.of(context).colorScheme.surface,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadii.sheet),
                       side: BorderSide(
@@ -810,12 +810,19 @@ class _ExploreScreenState extends State<ExploreScreen>
                     // até 55% enquanto a pessoa está explorando o mapa.
                     snap: false,
                     builder: (context, scrollController) => Material(
-                      elevation: 8,
-                      shadowColor: Colors.black.withValues(alpha: 0.12),
-                      color:
-                          isDark ? AppColors.darkCard : AppColors.slateCanvas,
-                      borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(AppRadii.sheet)),
+                      elevation: 12,
+                      shadowColor: Theme.of(context)
+                          .colorScheme
+                          .shadow
+                          .withValues(alpha: 0.24),
+                      color: Theme.of(context).colorScheme.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(AppRadii.sheet)),
+                        side: BorderSide(
+                            color:
+                                Theme.of(context).colorScheme.outlineVariant),
+                      ),
                       clipBehavior: Clip.antiAlias,
                       child: _buildPanel(context, scrollController, provider,
                           results, authProvider, vehicle, isDark, false),
@@ -1032,42 +1039,29 @@ class _ExploreScreenState extends State<ExploreScreen>
         if (isSearching)
           _buildSearchResultsView(context, isDark, provider, results)
         else
-          _buildDiscoveryHubView(
-              context, isDark, authProvider, vehicle, results),
+          _buildDiscoveryHubView(context, vehicle, results, desktop),
       ],
     );
   }
 
-  Widget _buildDiscoveryHubView(BuildContext context, bool isDark,
-      AuthProvider authProvider, Vehicle? vehicle, List<Workshop> results) {
+  Widget _buildDiscoveryHubView(BuildContext context, Vehicle? vehicle,
+      List<Workshop> results, bool desktop) {
     final colors = Theme.of(context).colorScheme;
-    final name = authProvider.isAuthenticated
-        ? authProvider.displayName.split(' ').first
-        : 'motorista';
     final loading = context.watch<WorkshopProvider>().isLoading;
     final compact = MediaQuery.sizeOf(context).height < 650;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
-        padding:
-            EdgeInsets.fromLTRB(20, compact ? 12 : 20, 20, compact ? 12 : 20),
+        padding: EdgeInsets.fromLTRB(20, desktop ? 20 : 14, 20, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (!compact)
-            Text('BOA VIAGEM, ${name.toUpperCase()}',
-                style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 1.4,
-                    fontWeight: FontWeight.w700,
-                    color: colors.onSurfaceVariant)),
-          if (!compact) const SizedBox(height: 8),
           Text('Encontre sua oficina.',
               style: TextStyle(
-                  fontSize: compact ? 24 : 28,
+                  fontSize: desktop ? 28 : (compact ? 22 : 24),
                   height: 1.1,
-                  letterSpacing: -1.2,
-                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.7,
+                  fontWeight: FontWeight.w700,
                   color: colors.onSurface)),
-          if (!compact) const SizedBox(height: 12),
-          if (!compact)
+          if (desktop) const SizedBox(height: 8),
+          if (desktop)
             Text('Explore a região e filtre pelo serviço.',
                 style: TextStyle(
                     fontSize: 14, height: 1.5, color: colors.onSurfaceVariant)),
@@ -1077,53 +1071,11 @@ class _ExploreScreenState extends State<ExploreScreen>
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text('Qual serviço você precisa?',
               style: Theme.of(context).textTheme.titleMedium)),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
       _buildCategoryStrip(context),
-      const SizedBox(height: 20),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Material(
-          color: isDark ? colors.primaryContainer : AppColors.slateInk,
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => MainShellNavigation.switchToTab(2),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(children: [
-                const Icon(Icons.directions_car_outlined,
-                    color: Color(0xFF90B8FF), size: 30),
-                const SizedBox(width: 14),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(
-                          vehicle == null
-                              ? 'Seu carro, no radar'
-                              : vehicle.shortName,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text(
-                          vehicle == null
-                              ? 'Adicione um veículo à sua garagem'
-                              : 'Ver garagem e próximas revisões',
-                          style: const TextStyle(
-                              color: Color(0xFFCAD4E2),
-                              fontSize: 12,
-                              height: 1.4)),
-                    ])),
-                const Icon(Icons.arrow_forward_rounded,
-                    color: Colors.white, size: 20),
-              ]),
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: 22),
+      const SizedBox(height: 16),
+      if (desktop) _buildGarageShortcut(context, vehicle),
+      if (desktop) const SizedBox(height: 22),
       Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(children: [
@@ -1156,6 +1108,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                   label: const Text('Usar minha localização')),
             ])),
       ...results.map((w) => WorkshopListTile(workshop: w)),
+      if (!desktop) const SizedBox(height: 12),
+      if (!desktop) _buildGarageShortcut(context, vehicle),
       Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
           child: OutlinedButton.icon(
@@ -1169,6 +1123,54 @@ class _ExploreScreenState extends State<ExploreScreen>
               icon: const Icon(Icons.add_business_outlined, size: 18),
               label: const Text('Cadastrar minha oficina'))),
     ]);
+  }
+
+  Widget _buildGarageShortcut(BuildContext context, Vehicle? vehicle) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: colors.primaryContainer,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => MainShellNavigation.switchToTab(2),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              Icon(Icons.directions_car_outlined,
+                  color: colors.onPrimaryContainer, size: 26),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      vehicle == null
+                          ? 'Seu carro, no radar'
+                          : vehicle.shortName,
+                      style: TextStyle(
+                          color: colors.onPrimaryContainer,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                      vehicle == null
+                          ? 'Adicione um veículo à sua garagem'
+                          : 'Ver garagem e próximas revisões',
+                      style: TextStyle(
+                          color: colors.onPrimaryContainer,
+                          fontSize: 12,
+                          height: 1.4)),
+                ],
+              )),
+              Icon(Icons.arrow_forward_rounded,
+                  color: colors.onPrimaryContainer, size: 20),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildCategoryStrip(BuildContext context) {

@@ -18,14 +18,14 @@ class SearchStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
 
     return Semantics(
       liveRegion: true,
       child: Material(
         elevation: 4,
-        shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-        color: isDark ? AppColors.darkCard : Colors.white,
+        shadowColor: colors.shadow.withValues(alpha: 0.16),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
         child: Container(
@@ -33,7 +33,7 @@ class SearchStatus extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
+              color: colors.outlineVariant,
               width: 1,
             ),
           ),
@@ -41,19 +41,19 @@ class SearchStatus extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (busy)
-                const SizedBox(
+                SizedBox(
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.cobaltPrimary,
+                    color: colors.primary,
                   ),
                 )
               else
                 Icon(
                   Icons.info_outline_rounded,
                   size: 16,
-                  color: isDark ? Colors.amber.shade300 : AppColors.amberGold,
+                  color: context.customColors.warning,
                 ),
               const SizedBox(width: 8),
               Flexible(
@@ -64,7 +64,7 @@ class SearchStatus extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : AppColors.slateInk,
+                      color: colors.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -76,14 +76,15 @@ class SearchStatus extends StatelessWidget {
                 InkWell(
                   borderRadius: BorderRadius.circular(10),
                   onTap: onRefresh,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                     child: Text(
                       'Atualizar',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.cobaltPrimary,
+                        color: colors.primary,
                       ),
                     ),
                   ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
 import '../widgets/mecloc_brand.dart';
 import 'explore_screen.dart';
 import 'favorites_screen.dart';
@@ -64,7 +63,6 @@ class _MainShellState extends State<MainShell> {
     final wide = MediaQuery.sizeOf(context).width >= 960;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final colors = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final content = IndexedStack(index: index, children: const [
       ExploreScreen(),
       FavoritesScreen(),
@@ -105,47 +103,24 @@ class _MainShellState extends State<MainShell> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 child: Material(
-                  elevation: 8,
-                  shadowColor: Colors.black.withValues(alpha: 0.25),
-                  color: isDark ? const Color(0xFF273140) : AppColors.slateInk,
-                  borderRadius: BorderRadius.circular(26),
+                  elevation: 4,
+                  shadowColor: colors.shadow.withValues(alpha: 0.16),
+                  color: Theme.of(context).navigationBarTheme.backgroundColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                    side: BorderSide(color: colors.outlineVariant),
+                  ),
                   clipBehavior: Clip.antiAlias,
-                  child: NavigationBarTheme(
-                    data: NavigationBarThemeData(
-                      height: 68,
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      indicatorColor: AppColors.cobaltPrimary,
-                      iconTheme: WidgetStateProperty.resolveWith(
-                          (states) => IconThemeData(
-                                size: 22,
-                                color: states.contains(WidgetState.selected)
-                                    ? Colors.white
-                                    : const Color(0xFFB6C4D8),
-                              )),
-                      labelTextStyle:
-                          WidgetStateProperty.resolveWith((states) => TextStyle(
-                                fontSize: 11,
-                                fontWeight:
-                                    states.contains(WidgetState.selected)
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                color: states.contains(WidgetState.selected)
-                                    ? Colors.white
-                                    : const Color(0xFFB6C4D8),
-                              )),
-                    ),
-                    child: NavigationBar(
-                      selectedIndex: index,
-                      onDestinationSelected: MainShellNavigation.switchToTab,
-                      destinations: _destinations
-                          .map((d) => NavigationDestination(
-                                icon: Icon(d.icon),
-                                selectedIcon: Icon(d.selected),
-                                label: d.label,
-                              ))
-                          .toList(),
-                    ),
+                  child: NavigationBar(
+                    selectedIndex: index,
+                    onDestinationSelected: MainShellNavigation.switchToTab,
+                    destinations: _destinations
+                        .map((d) => NavigationDestination(
+                              icon: Icon(d.icon),
+                              selectedIcon: Icon(d.selected),
+                              label: d.label,
+                            ))
+                        .toList(),
                   ),
                 ),
               ),

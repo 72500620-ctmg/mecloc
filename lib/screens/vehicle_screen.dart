@@ -205,6 +205,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
     final authProvider = context.watch<AuthProvider>();
     final isAuthenticated = authProvider.isAuthenticated;
     final vehicleProvider = context.watch<VehicleProvider>();
@@ -236,7 +237,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.slateInk,
+                        color: colors.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(22),
                       ),
                       child: Row(
@@ -244,30 +245,31 @@ class _VehicleScreenState extends State<VehicleScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: colors.primaryContainer,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(Icons.directions_car_rounded,
-                                color: Colors.white, size: 30),
+                            child: Icon(Icons.directions_car_rounded,
+                                color: colors.onPrimaryContainer, size: 30),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'Garagem Inteligente',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: colors.onSurface,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 16,
                                   ),
                                 ),
-                                SizedBox(height: 3),
+                                const SizedBox(height: 3),
                                 Text(
                                   'Selecione seu veículo para calibrar especialidades, peças e orçamentos recomendados.',
                                   style: TextStyle(
-                                      color: Colors.white70, fontSize: 12),
+                                      color: colors.onSurfaceVariant,
+                                      fontSize: 12),
                                 ),
                               ],
                             ),

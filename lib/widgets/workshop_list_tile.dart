@@ -42,7 +42,7 @@ class _WorkshopListTileState extends State<WorkshopListTile> {
                 Border.all(color: _hovered ? colors.primary : colors.outline),
           ),
           child: Material(
-            color: colors.surface,
+            color: colors.surfaceContainer,
             borderRadius: BorderRadius.circular(AppRadii.card),
             clipBehavior: Clip.antiAlias,
             child: InkWell(

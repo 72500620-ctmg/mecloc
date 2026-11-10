@@ -52,7 +52,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
     final workshopProvider = context.watch<WorkshopProvider>();
@@ -85,10 +85,10 @@ class ProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+              color: colors.surfaceContainer,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
                 width: 1.2,
               ),
             ),
@@ -96,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 32,
-                  backgroundColor: AppColors.forest.withValues(alpha: 0.15),
+                  backgroundColor: colors.primary.withValues(alpha: 0.15),
                   backgroundImage:
                       photoUrl != null ? NetworkImage(photoUrl) : null,
                   child: photoUrl == null
@@ -105,7 +105,7 @@ class ProfileScreen extends StatelessWidget {
                               ? Icons.person_rounded
                               : Icons.person_outline_rounded,
                           size: 36,
-                          color: AppColors.forest,
+                          color: colors.primary,
                         )
                       : null,
                 ),
@@ -142,17 +142,17 @@ class ProfileScreen extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppColors.forest.withValues(alpha: 0.15),
+                                color: colors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 isWorkshopOwner
                                     ? 'Oficina Parceira'
                                     : 'Motorista',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.forest,
+                                  color: colors.primary,
                                 ),
                               ),
                             ),
@@ -166,10 +166,10 @@ class ProfileScreen extends StatelessWidget {
                               ),
                               child: Text(
                                 activeVehicle.shortName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.forest,
+                                  color: colors.primary,
                                 ),
                               ),
                             ),
@@ -195,20 +195,19 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
             child: Column(
               children: [
                 if (!isAuthenticated) ...[
                   ListTile(
-                    leading: const Icon(Icons.login_rounded,
-                        color: AppColors.forest),
+                    leading: Icon(Icons.login_rounded, color: colors.primary),
                     title: const Text('Entrar com sua conta'),
                     subtitle:
                         const Text('Acesse seus orçamentos e garagens salvas'),
@@ -224,8 +223,8 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.person_add_alt_1_rounded,
-                        color: AppColors.forest),
+                    leading: Icon(Icons.person_add_alt_1_rounded,
+                        color: colors.primary),
                     title: const Text('Criar novo cadastro'),
                     subtitle:
                         const Text('Cadastre-se como motorista ou oficina'),
@@ -241,8 +240,8 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ] else ...[
                   ListTile(
-                    leading: const Icon(Icons.switch_account_outlined,
-                        color: AppColors.forest),
+                    leading: Icon(Icons.switch_account_outlined,
+                        color: colors.primary),
                     title: const Text('Trocar de conta'),
                     trailing:
                         const Icon(Icons.arrow_forward_ios_rounded, size: 16),
@@ -286,19 +285,19 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.storefront_rounded,
-                      color: AppColors.forest),
+                  leading:
+                      Icon(Icons.storefront_rounded, color: colors.primary),
                   title: const Text('Minhas Oficinas'),
                   subtitle: Text(
                     !isAuthenticated
@@ -320,8 +319,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.add_business_rounded,
-                      color: AppColors.forest),
+                  leading:
+                      Icon(Icons.add_business_rounded, color: colors.primary),
                   title: const Text('Cadastrar Nova Oficina'),
                   subtitle:
                       const Text('Ative atendimento via WhatsApp no MecLoc'),
@@ -362,19 +361,18 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.palette_outlined,
-                      color: AppColors.forest),
+                  leading: Icon(Icons.palette_outlined, color: colors.primary),
                   title: const Text('Tema do aplicativo'),
                   subtitle: Text(switch (themeProvider.themeMode) {
                     ThemeMode.system => 'Automático (sistema)',
@@ -391,8 +389,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.directions_car_filled_rounded,
-                      color: AppColors.forest),
+                  leading: Icon(Icons.directions_car_filled_rounded,
+                      color: colors.primary),
                   title: const Text('Gerenciar Veículos'),
                   subtitle: Text(
                     !isAuthenticated
@@ -436,29 +434,29 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 ListTile(
                   leading:
-                      Icon(Icons.info_outline_rounded, color: AppColors.forest),
-                  title: Text('Sobre a Plataforma MecLoc'),
-                  subtitle: Text(
+                      Icon(Icons.info_outline_rounded, color: colors.primary),
+                  title: const Text('Sobre a Plataforma MecLoc'),
+                  subtitle: const Text(
                       'Versão 2.1 • Firebase Auth, Firestore & OpenStreetMap'),
                 ),
-                Divider(height: 1),
+                const Divider(height: 1),
                 ListTile(
-                  leading: Icon(Icons.verified_user_outlined,
-                      color: AppColors.forest),
-                  title: Text('Privacidade e Termos de Uso'),
-                  subtitle: Text(
+                  leading:
+                      Icon(Icons.verified_user_outlined, color: colors.primary),
+                  title: const Text('Privacidade e Termos de Uso'),
+                  subtitle: const Text(
                       'Dados abertos do OpenStreetMap e dados locais protegidos'),
                 ),
               ],

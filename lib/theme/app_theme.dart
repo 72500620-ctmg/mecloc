@@ -181,6 +181,9 @@ class AppTheme {
       secondary: const Color(0xFF334155),
       onSecondary: Colors.white,
       surface: AppColors.slateCard,
+      surfaceContainerLow: AppColors.slateCanvas,
+      surfaceContainer: AppColors.slateCard,
+      surfaceContainerHigh: const Color(0xFFEAF0F7),
       onSurface: AppColors.slateInk,
       onSurfaceVariant: AppColors.slateMuted,
       surfaceContainerHighest: const Color(0xFFE8EFF7),
@@ -291,10 +294,10 @@ class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 66,
-        backgroundColor: Colors.white,
+        height: 68,
+        backgroundColor: scheme.surface,
         elevation: 0,
-        indicatorColor: const Color(0xFFE0EDFF),
+        indicatorColor: scheme.primaryContainer,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: primary, size: 24);
@@ -331,6 +334,9 @@ class AppTheme {
       secondary: const Color(0xFF94A3B8),
       onSecondary: Colors.black,
       surface: AppColors.darkCard,
+      surfaceContainerLow: AppColors.darkCard,
+      surfaceContainer: const Color(0xFF20232A),
+      surfaceContainerHigh: const Color(0xFF292D36),
       onSurface: const Color(0xFFF8FAFC),
       onSurfaceVariant: const Color(0xFFAFB8C8),
       surfaceContainerHighest: AppColors.darkSubtle,
@@ -381,7 +387,7 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: AppColors.darkCard,
+        color: scheme.surfaceContainer,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -441,10 +447,10 @@ class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 66,
-        backgroundColor: AppColors.darkCard,
+        height: 68,
+        backgroundColor: scheme.surfaceContainer,
         elevation: 0,
-        indicatorColor: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
+        indicatorColor: scheme.primaryContainer,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: primary, size: 24);
