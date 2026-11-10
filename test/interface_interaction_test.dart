@@ -151,6 +151,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('painel recolhido permanece no lugar ao arrastar o mapa',
+      (tester) async {
+    await _mount(tester, size: const Size(390, 844));
+    final sheet = tester.widget<DraggableScrollableSheet>(
+        find.byType(DraggableScrollableSheet));
+    expect(sheet.snap, isFalse);
+    final panel = find.byType(ListView).first;
+    final initialTop = tester.getTopLeft(panel).dy;
+    await tester.dragFrom(Offset(190, initialTop + 14), const Offset(0, 350));
+    await tester.pumpAndSettle();
+    final collapsedTop = tester.getTopLeft(panel).dy;
+    expect(collapsedTop, greaterThan(initialTop + 100));
+
+    await tester.dragFrom(const Offset(190, 260), const Offset(0, -120));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(panel).dy, closeTo(collapsedTop, 2));
+
+    await tester.dragFrom(Offset(190, collapsedTop + 12), const Offset(0, -18));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(panel).dy, greaterThan(collapsedTop - 65),
+        reason: 'Um gesto curto no puxador não deve expandir até 55%');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('filtro pode trocar de serviço sem voltar ao início',
       (tester) async {
     final workshops = await _mount(tester, size: const Size(1440, 900));

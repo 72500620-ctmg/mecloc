@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
 import '../widgets/mecloc_brand.dart';
 import 'explore_screen.dart';
 import 'favorites_screen.dart';
@@ -63,6 +64,7 @@ class _MainShellState extends State<MainShell> {
     final wide = MediaQuery.sizeOf(context).width >= 960;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final content = IndexedStack(index: index, children: const [
       ExploreScreen(),
       FavoritesScreen(),
@@ -98,21 +100,54 @@ class _MainShellState extends State<MainShell> {
       ]),
       bottomNavigationBar: wide || keyboardOpen
           ? null
-          : DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(top: BorderSide(color: colors.outline)),
-              ),
-              child: NavigationBar(
-                selectedIndex: index,
-                onDestinationSelected: MainShellNavigation.switchToTab,
-                destinations: _destinations
-                    .map((d) => NavigationDestination(
-                          icon: Icon(d.icon),
-                          selectedIcon: Icon(d.selected),
-                          label: d.label,
-                        ))
-                    .toList(),
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Material(
+                  elevation: 8,
+                  shadowColor: Colors.black.withValues(alpha: 0.25),
+                  color: isDark ? const Color(0xFF273140) : AppColors.slateInk,
+                  borderRadius: BorderRadius.circular(26),
+                  clipBehavior: Clip.antiAlias,
+                  child: NavigationBarTheme(
+                    data: NavigationBarThemeData(
+                      height: 68,
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      indicatorColor: AppColors.cobaltPrimary,
+                      iconTheme: WidgetStateProperty.resolveWith(
+                          (states) => IconThemeData(
+                                size: 22,
+                                color: states.contains(WidgetState.selected)
+                                    ? Colors.white
+                                    : const Color(0xFFB6C4D8),
+                              )),
+                      labelTextStyle:
+                          WidgetStateProperty.resolveWith((states) => TextStyle(
+                                fontSize: 11,
+                                fontWeight:
+                                    states.contains(WidgetState.selected)
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                color: states.contains(WidgetState.selected)
+                                    ? Colors.white
+                                    : const Color(0xFFB6C4D8),
+                              )),
+                    ),
+                    child: NavigationBar(
+                      selectedIndex: index,
+                      onDestinationSelected: MainShellNavigation.switchToTab,
+                      destinations: _destinations
+                          .map((d) => NavigationDestination(
+                                icon: Icon(d.icon),
+                                selectedIcon: Icon(d.selected),
+                                label: d.label,
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                ),
               ),
             ),
     );

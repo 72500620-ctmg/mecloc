@@ -396,9 +396,10 @@ class _ExploreScreenState extends State<ExploreScreen>
 
     return LayoutBuilder(builder: (context, constraints) {
       final isDesktop = constraints.maxWidth >= 840;
+      final panelTop = isDesktop ? 126.0 : 76.0;
       final panelHeight = isDesktop
           ? 0.0
-          : (constraints.maxHeight - topInset - 126) * _sheetExtent;
+          : (constraints.maxHeight - topInset - panelTop) * _sheetExtent;
       final mapLeft = isDesktop ? 408.0 : 0.0;
       return Scaffold(
         body: Stack(
@@ -484,7 +485,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(32, topInset + 184, 32, 16),
+                      padding: EdgeInsets.fromLTRB(
+                          32, topInset + (isDesktop ? 184 : 120), 32, 16),
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.travel_explore_rounded,
                             size: 44,
@@ -509,45 +511,47 @@ class _ExploreScreenState extends State<ExploreScreen>
                 ),
               ),
 
-            Positioned(
-              top: topInset + 12,
-              left: mapLeft + 20,
-              right: 20,
-              child: Material(
-                elevation: 2,
-                shadowColor: Colors.black.withValues(alpha: 0.12),
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Row(children: [
-                    const MecLocBrand(),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        constraints.maxWidth - mapLeft < 360
-                            ? 'NO SEU CAMINHO'
-                            : 'OFICINAS · ROTAS · REVISÕES',
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: isDesktop ? 11 : 9,
-                          letterSpacing: 1.1,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+            if (isDesktop)
+              Positioned(
+                top: topInset + 12,
+                left: mapLeft + 20,
+                right: 20,
+                child: Material(
+                  elevation: 2,
+                  shadowColor: Colors.black.withValues(alpha: 0.12),
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    child: Row(children: [
+                      const MecLocBrand(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          constraints.maxWidth - mapLeft < 360
+                              ? 'NO SEU CAMINHO'
+                              : 'OFICINAS · ROTAS · REVISÕES',
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: isDesktop ? 11 : 9,
+                            letterSpacing: 1.1,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                  ]),
+                    ]),
+                  ),
                 ),
               ),
-            ),
 
             // 2. BARRA DE PESQUISA FLUTUANTE COM LOADING CONJUGADO
             Positioned(
-              top: topInset + 62,
+              top: topInset + (isDesktop ? 62 : 12),
               left: mapLeft + _kMapFloatingPadding,
               right: _kMapFloatingPadding,
               child: Material(
@@ -695,7 +699,7 @@ class _ExploreScreenState extends State<ExploreScreen>
             if (_showSearchAreaButton && !provider.isLoading)
               Positioned(
                 left: mapLeft + _kMapFloatingPadding,
-                top: topInset + 130,
+                top: topInset + (isDesktop ? 130 : 80),
                 child: Material(
                   elevation: 4,
                   color: Theme.of(context).colorScheme.surface,
@@ -739,7 +743,7 @@ class _ExploreScreenState extends State<ExploreScreen>
             // 3. BOTÃO FLUTUANTE SOS NO MAPA (com margem padronizada)
             Positioned(
               right: _kMapFloatingPadding,
-              top: topInset + 130,
+              top: topInset + (isDesktop ? 130 : 80),
               child: Material(
                 elevation: 4,
                 color: AppColors.crimsonSos,
@@ -778,7 +782,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 bottom: 16,
                 width: 376,
                 child: Material(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: isDark ? AppColors.darkCard : AppColors.slateCanvas,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadii.sheet),
                       side: BorderSide(
@@ -790,7 +794,7 @@ class _ExploreScreenState extends State<ExploreScreen>
               )
             else
               Positioned.fill(
-                top: topInset + 126,
+                top: topInset + panelTop,
                 child: NotificationListener<DraggableScrollableNotification>(
                   onNotification: (notification) {
                     if ((_sheetExtent - notification.extent).abs() > 0.005) {
@@ -802,12 +806,14 @@ class _ExploreScreenState extends State<ExploreScreen>
                     initialChildSize: 0.55,
                     minChildSize: 0.16,
                     maxChildSize: 0.92,
-                    snap: true,
-                    snapSizes: const [0.16, 0.55, 0.7, 0.92],
+                    // Um gesto curto perto da borda não deve abrir o painel
+                    // até 55% enquanto a pessoa está explorando o mapa.
+                    snap: false,
                     builder: (context, scrollController) => Material(
                       elevation: 8,
                       shadowColor: Colors.black.withValues(alpha: 0.12),
-                      color: Theme.of(context).colorScheme.surface,
+                      color:
+                          isDark ? AppColors.darkCard : AppColors.slateCanvas,
                       borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(AppRadii.sheet)),
                       clipBehavior: Clip.antiAlias,

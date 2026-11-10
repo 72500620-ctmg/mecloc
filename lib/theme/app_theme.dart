@@ -20,9 +20,9 @@ class AppColors {
   static const cobaltLuminous = Color(0xFF60A5FA);
 
   // Neutros Claros (Clean Slate)
-  static const slateCanvas = Color(0xFFF5F6F8);
+  static const slateCanvas = Color(0xFFF0F4F9);
   static const slateCard = Color(0xFFFFFFFF);
-  static const slateBorder = Color(0xFFE2E8F0);
+  static const slateBorder = Color(0xFFD5DFEB);
   static const slateMuted = Color(0xFF596579);
   static const slateInk = Color(0xFF17202E);
 
@@ -183,7 +183,7 @@ class AppTheme {
       surface: AppColors.slateCard,
       onSurface: AppColors.slateInk,
       onSurfaceVariant: AppColors.slateMuted,
-      surfaceContainerHighest: const Color(0xFFF1F5F9),
+      surfaceContainerHighest: const Color(0xFFE8EFF7),
       outline: AppColors.slateBorder,
       outlineVariant: const Color(0xFFCBD5E1),
       error: AppColors.crimsonSos,

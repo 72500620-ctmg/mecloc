@@ -6,7 +6,7 @@ O mapa representa a busca real, e o painel representa a decisão: serviço, ofic
 
 ## Fluxo principal
 
-- No celular, a marca e a busca precedem o mapa. O painel abre em 55% da altura disponível, pode ser arrastado e contém chips de serviço, resultados e ações. Em celulares compactos, o cabeçalho ocupa menos altura e os filtros aparecem antes do atalho da garagem. A barra de navegação ocupa espaço próprio no `Scaffold`, evitando cobrir cards e formulários.
+- No celular, a busca fica diretamente sobre o mapa, sem cabeçalho. O painel abre em 55% da altura disponível, pode ser arrastado livremente e contém chips de serviço, resultados e ações. A navegação arredondada flutua visualmente sobre o fundo do `Scaffold`, sem cobrir cards e formulários. Superfícies azul acinzentadas separam mapa, painel e navegação.
 - No desktop, a navegação passa para uma rail e a lista ocupa a coluna esquerda. Mapa, busca e resultados ficam simultaneamente visíveis.
 - Cada card usa dados existentes: nome, categoria, endereço, distância quando disponível, avaliação quando disponível e indicação de parceria. Salvar favorito, abrir detalhes e cotar possuem alvos independentes.
 - Filtros de serviço seguem visíveis nos resultados; ordenação oferece proximidade, nome e compatibilidade quando há veículo ativo. Favoritos têm busca por nome, endereço ou categoria, ignorando acentos.
