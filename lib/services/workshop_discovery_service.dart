@@ -79,7 +79,6 @@ class WorkshopDiscoveryService {
         }
         if (result.isComplete) {
           completeNameQuery = true;
-          if (result.isNotEmpty) return _sorted(byId.values, center);
           break;
         }
       } catch (_) {
@@ -88,20 +87,47 @@ class WorkshopDiscoveryService {
         if (_disposed) rethrow;
       }
     }
-    final fallback =
-        await _searchNominatimMatches(center, 35000, name: name, epoch: epoch);
-    if (fallback.isEmpty) {
-      fallback.addAll(
-          await _searchPhoton(center, 35000, terms: [name], epoch: epoch));
+    // Uma fonte que respondeu sem correspondências é um resultado vazio
+    // legítimo (nome inexistente), não uma falha de consulta.
+    var fallbackAnswered = false;
+    void answered() => fallbackAnswered = true;
+    void add(Iterable<Workshop> items) {
+      for (final w in items) {
+        byId.putIfAbsent(w.id, () => w);
+      }
     }
-    for (final w in fallback) {
-      byId.putIfAbsent(w.id, () => w);
+
+    // 1) Arredores (35 km). O Overpass com filtro de nome frequentemente
+    // estoura o tempo e não tolera acentos ausentes; Photon e Nominatim
+    // restritos à região garantem os resultados mais próximos. A busca
+    // global abaixo ordena por relevância e não pode substituir esta etapa.
+    if (!completeNameQuery || byId.isEmpty) {
+      add(await _searchPhoton(center, 35000,
+          terms: [name], epoch: epoch, onAnswered: answered));
     }
+    if (!completeNameQuery && byId.isEmpty) {
+      add(await _searchNominatimMatches(center, 35000,
+          name: name, epoch: epoch, onAnswered: answered));
+    }
+    // 2) Restante do Brasil, sem depender da região já exibida no mapa.
+    // lat/lon apenas priorizam a proximidade; os resultados acima permanecem.
+    add(await _searchPhoton(center, 0,
+        terms: [name], epoch: epoch, onAnswered: answered, global: true));
+    if (byId.isEmpty) {
+      add(await _searchNominatimMatches(center, 0,
+          name: name, epoch: epoch, onAnswered: answered, global: true));
+    }
+    _ensureCurrent(epoch);
     if (byId.isEmpty) {
       if (completeNameQuery) return WorkshopSearchResult(const []);
+      if (fallbackAnswered) {
+        return WorkshopSearchResult(const [], isComplete: false);
+      }
       throw Exception(
           'Não foi possível consultar os estabelecimentos por nome. Tente novamente.');
     }
+    // Fora do raio do Overpass a lista vem de buscas por relevância e nunca
+    // é considerada completa.
     return _sorted(byId.values, center, isComplete: false);
   }
 
@@ -371,10 +397,13 @@ class WorkshopDiscoveryService {
       {SearchBounds? box,
       String? name,
       required int epoch,
-      void Function(List<Workshop>)? onProgress}) async {
+      void Function(List<Workshop>)? onProgress,
+      void Function()? onAnswered,
+      bool global = false}) async {
     const endpoint = 'https://nominatim.openstreetmap.org/search';
     if (!_endpointReady(endpoint)) return [];
-    final latDelta = radius / 111320;
+    // Na busca global o viewbox (35 km) só prioriza resultados próximos.
+    final latDelta = (global ? 35000 : radius) / 111320;
     final lonDelta =
         latDelta / math.max(0.01, math.cos(center.latitude * math.pi / 180));
     final bounds = box ??
@@ -398,7 +427,7 @@ class WorkshopDiscoveryService {
           'extratags': '1',
           'addressdetails': '1',
           'countrycodes': 'br',
-          'bounded': '1',
+          if (!global) 'bounded': '1',
           'viewbox':
               '${bounds.west},${bounds.north},${bounds.east},${bounds.south}',
         });
@@ -411,6 +440,7 @@ class WorkshopDiscoveryService {
         }
         final decoded = jsonDecode(response.body);
         if (decoded is! List) break;
+        onAnswered?.call();
         for (final item in decoded.whereType<Map<String, dynamic>>()) {
           try {
             final category = (item['category'] ?? item['class'])?.toString();
@@ -437,7 +467,9 @@ class WorkshopDiscoveryService {
               'lon': item['lon'],
               'tags': tags
             });
-            if (_inside(w, center, radius, box)) found[w.id] = w;
+            if (global ? _validPoint(w) : _inside(w, center, radius, box)) {
+              found[w.id] = w;
+            }
           } on TypeError {/* Um cadastro inválido não descarta os demais. */}
         }
         if (found.isNotEmpty) {
@@ -463,6 +495,8 @@ class WorkshopDiscoveryService {
     SearchBounds? box,
     required int epoch,
     void Function(List<Workshop>)? onProgress,
+    void Function()? onAnswered,
+    bool global = false,
   }) async {
     final latDelta = radius / 111320;
     final lonDelta =
@@ -486,8 +520,10 @@ class WorkshopDiscoveryService {
           'lon': '${center.longitude}',
           'limit': '50',
           'osm_tag': _photonTags,
-          'bbox':
-              '${bounds.west},${bounds.south},${bounds.east},${bounds.north}',
+          // Sem bbox na busca global: lat/lon apenas priorizam a proximidade.
+          if (!global)
+            'bbox':
+                '${bounds.west},${bounds.south},${bounds.east},${bounds.north}',
         });
         final response = await _request('GET', uri,
             timeout: const Duration(seconds: 4), epoch: epoch);
@@ -496,12 +532,16 @@ class WorkshopDiscoveryService {
           break;
         }
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        onAnswered?.call();
         final workshops = <Workshop>[];
         for (final feature in (decoded['features'] as List<dynamic>? ?? [])
             .whereType<Map<String, dynamic>>()) {
           try {
-            final w = _fromPhoton(feature);
-            if (w != null && _inside(w, center, radius, box)) workshops.add(w);
+            final w = _fromPhoton(feature, brazilOnly: global);
+            if (w != null &&
+                (global ? _validPoint(w) : _inside(w, center, radius, box))) {
+              workshops.add(w);
+            }
           } on TypeError {/* Ignora somente o item inválido. */}
         }
         lists.add(workshops);
@@ -519,8 +559,12 @@ class WorkshopDiscoveryService {
         .toList();
   }
 
-  Workshop? _fromPhoton(Map<String, dynamic> feature) {
+  Workshop? _fromPhoton(Map<String, dynamic> feature,
+      {bool brazilOnly = false}) {
     final props = feature['properties'] as Map<String, dynamic>? ?? {};
+    // O Photon não filtra por país; sem bbox, descarta resultados de fora.
+    final country = props['countrycode']?.toString().toUpperCase();
+    if (brazilOnly && country != null && country != 'BR') return null;
     final key = props['osm_key']?.toString();
     final extra = props['extra'] as Map<String, dynamic>? ?? {};
     final tags = <String, dynamic>{
@@ -557,17 +601,20 @@ class WorkshopDiscoveryService {
     });
   }
 
-  bool _inside(Workshop w, LatLng center, int radius, SearchBounds? box) {
+  bool _validPoint(Workshop w) {
     final lat = w.latitude, lon = w.longitude;
-    if (lat == null ||
-        lon == null ||
-        !lat.isFinite ||
-        !lon.isFinite ||
-        lat.abs() > 90 ||
-        lon.abs() > 180 ||
-        w.isExcludedFromDiscovery) {
-      return false;
-    }
+    return lat != null &&
+        lon != null &&
+        lat.isFinite &&
+        lon.isFinite &&
+        lat.abs() <= 90 &&
+        lon.abs() <= 180 &&
+        !w.isExcludedFromDiscovery;
+  }
+
+  bool _inside(Workshop w, LatLng center, int radius, SearchBounds? box) {
+    if (!_validPoint(w)) return false;
+    final lat = w.latitude!, lon = w.longitude!;
     if (box != null) {
       return lat >= box.south &&
           lat <= box.north &&
