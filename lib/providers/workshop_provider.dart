@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
@@ -334,6 +335,19 @@ class WorkshopProvider extends ChangeNotifier {
         if (!stale()) _acceptResults(results);
         return;
       }
+      // Oficinas cadastradas no app respondem pelo nome em qualquer região,
+      // não só na área que o mapa já exibiu.
+      final knownMatches = {
+        for (final w in [
+          ...localMatches,
+          ..._customWorkshops.where((w) =>
+              !w.isExcludedFromDiscovery &&
+              w.latitude != null &&
+              w.longitude != null &&
+              _matchesText(w, term)),
+        ])
+          w.id: w
+      }.values.toList();
       Object? nameFailure;
       var nameSearchAnswered = false;
       if (reference != null) {
@@ -342,23 +356,20 @@ class WorkshopProvider extends ChangeNotifier {
               term, reference);
           if (stale()) return;
           nameSearchAnswered = true;
-          if (results.isNotEmpty) {
-            _setSearchArea(reference, radius: 35000);
-            _acceptResults(results);
-            _selectedWorkshop = _workshops.firstOrNull;
-            return;
-          }
           // A consulta remota foi executada mesmo quando já havia correspondência local.
-          if (localMatches.isNotEmpty) {
-            _setSearchArea(reference, radius: 35000);
-            _acceptResults(localMatches);
-            _selectedWorkshop = localMatches.first;
+          if (results.isNotEmpty || knownMatches.isNotEmpty) {
+            _showNameResults(reference, results, knownMatches);
             return;
           }
         } on DiscoveryCancelled {
           rethrow;
         } catch (error) {
           nameFailure = error;
+          if (stale()) return;
+          if (knownMatches.isNotEmpty) {
+            _showNameResults(reference, const [], knownMatches);
+            return;
+          }
         }
       }
       LatLng center;
@@ -400,6 +411,26 @@ class WorkshopProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// Exibe o resultado da busca por nome. A área ativa é ampliada até a
+  /// correspondência mais distante; caso contrário, oficinas encontradas fora
+  /// da região já exibida no mapa seriam descartadas pelo filtro de área.
+  void _showNameResults(
+      LatLng reference, List<Workshop> remote, List<Workshop> known) {
+    const distance = Distance(roundResult: false);
+    var radius = 35000.0;
+    for (final w in [...remote, ...known]) {
+      if (w.latitude == null || w.longitude == null) continue;
+      radius = math.max(
+          radius,
+          distance.as(LengthUnit.Meter, reference,
+                  LatLng(w.latitude!, w.longitude!)) +
+              500);
+    }
+    _setSearchArea(reference, radius: radius.ceil());
+    _acceptResults(remote.isNotEmpty ? remote : known);
+    _selectedWorkshop = getFilteredWorkshops(null).firstOrNull;
   }
 
   void _setSearchArea(LatLng center,
