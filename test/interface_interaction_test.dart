@@ -140,6 +140,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('filtro principal é acessível sem rolar em celular compacto',
+      (tester) async {
+    final workshops = await _mount(tester, size: const Size(320, 568));
+    final filter = find.widgetWithText(FilterChip, 'Mecânica').hitTestable();
+    expect(filter, findsOneWidget);
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+    expect(workshops.selectedCategory, WorkshopCategory.mechanic);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('filtro pode trocar de serviço sem voltar ao início',
       (tester) async {
     final workshops = await _mount(tester, size: const Size(1440, 900));

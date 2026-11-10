@@ -1039,30 +1039,41 @@ class _ExploreScreenState extends State<ExploreScreen>
         ? authProvider.displayName.split(' ').first
         : 'motorista';
     final loading = context.watch<WorkshopProvider>().isLoading;
+    final compact = MediaQuery.sizeOf(context).height < 650;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        padding:
+            EdgeInsets.fromLTRB(20, compact ? 12 : 20, 20, compact ? 12 : 20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('BOA VIAGEM, ${name.toUpperCase()}',
-              style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.4,
-                  fontWeight: FontWeight.w700,
-                  color: colors.onSurfaceVariant)),
-          const SizedBox(height: 8),
+          if (!compact)
+            Text('BOA VIAGEM, ${name.toUpperCase()}',
+                style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurfaceVariant)),
+          if (!compact) const SizedBox(height: 8),
           Text('Encontre sua oficina.',
               style: TextStyle(
-                  fontSize: 28,
+                  fontSize: compact ? 24 : 28,
                   height: 1.1,
                   letterSpacing: -1.2,
                   fontWeight: FontWeight.w800,
                   color: colors.onSurface)),
-          const SizedBox(height: 12),
-          Text('Explore a região e filtre pelo serviço.',
-              style: TextStyle(
-                  fontSize: 14, height: 1.5, color: colors.onSurfaceVariant)),
+          if (!compact) const SizedBox(height: 12),
+          if (!compact)
+            Text('Explore a região e filtre pelo serviço.',
+                style: TextStyle(
+                    fontSize: 14, height: 1.5, color: colors.onSurfaceVariant)),
         ]),
       ),
+      Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text('Qual serviço você precisa?',
+              style: Theme.of(context).textTheme.titleMedium)),
+      const SizedBox(height: 12),
+      _buildCategoryStrip(context),
+      const SizedBox(height: 20),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Material(
@@ -1106,13 +1117,6 @@ class _ExploreScreenState extends State<ExploreScreen>
           ),
         ),
       ),
-      const SizedBox(height: 22),
-      Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text('Qual serviço você precisa?',
-              style: Theme.of(context).textTheme.titleMedium)),
-      const SizedBox(height: 12),
-      _buildCategoryStrip(context),
       const SizedBox(height: 22),
       Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),

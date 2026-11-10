@@ -6,7 +6,7 @@ O mapa representa a busca real, e o painel representa a decisão: serviço, ofic
 
 ## Fluxo principal
 
-- No celular, a marca e a busca precedem o mapa. O painel abre em 55% da altura disponível, pode ser arrastado e contém chips de serviço, resultados e ações. A barra de navegação ocupa espaço próprio no `Scaffold`, evitando cobrir cards e formulários.
+- No celular, a marca e a busca precedem o mapa. O painel abre em 55% da altura disponível, pode ser arrastado e contém chips de serviço, resultados e ações. Em celulares compactos, o cabeçalho ocupa menos altura e os filtros aparecem antes do atalho da garagem. A barra de navegação ocupa espaço próprio no `Scaffold`, evitando cobrir cards e formulários.
 - No desktop, a navegação passa para uma rail e a lista ocupa a coluna esquerda. Mapa, busca e resultados ficam simultaneamente visíveis.
 - Cada card usa dados existentes: nome, categoria, endereço, distância quando disponível, avaliação quando disponível e indicação de parceria. Salvar favorito, abrir detalhes e cotar possuem alvos independentes.
 - Filtros de serviço seguem visíveis nos resultados; ordenação oferece proximidade, nome e compatibilidade quando há veículo ativo. Favoritos têm busca por nome, endereço ou categoria, ignorando acentos.
@@ -15,7 +15,7 @@ O mapa representa a busca real, e o painel representa a decisão: serviço, ofic
 
 ## Verificação
 
-Rodar `flutter analyze`, `flutter test` e `flutter build web`. Os testes de interface cobrem filtro, favoritos, independência das ações do card e layouts em 320, 390, 768, 1024 e 1440 px, inclusive tema escuro. Conferir também as capturas do build web em `diagnostics/taste/` (arquivos locais ignorados pelo Git).
+Rodar `flutter analyze`, `flutter test` e `flutter build web`. Os testes de interface cobrem filtro tocável sem rolagem em 320×568, favoritos, independência das ações do card e layouts em 320, 390, 768, 1024 e 1440 px, inclusive tema escuro. Capturas manuais do build foram verificadas em 320×568 e 390×844, claro e escuro. Conferir também as capturas do build web em `diagnostics/taste/` (arquivos locais ignorados pelo Git).
 
 ## Próximas decisões de produto
 
