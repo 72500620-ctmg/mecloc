@@ -7,171 +7,173 @@ import '../theme/app_theme.dart';
 import 'whatsapp_quote_modal.dart';
 import 'workshop_detail_sheet.dart';
 
-class WorkshopListTile extends StatelessWidget {
+/// Dados de decisão primeiro; ações de salvar e cotar têm alvos independentes.
+class WorkshopListTile extends StatefulWidget {
   const WorkshopListTile({super.key, required this.workshop});
-
   final Workshop workshop;
 
   @override
+  State<WorkshopListTile> createState() => _WorkshopListTileState();
+}
+
+class _WorkshopListTileState extends State<WorkshopListTile> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final workshop = widget.workshop;
+    final colors = Theme.of(context).colorScheme;
     final provider = context.watch<WorkshopProvider>();
     final isFavorite = provider.isFavorite(workshop.id);
+    final reduced = MediaQuery.disableAnimationsOf(context);
 
-    return InkWell(
-      onTap: () => WorkshopDetailSheet.show(context, workshop),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
-              width: 0.8,
-            ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: reduced ? Duration.zero : const Duration(milliseconds: 150),
+          transform:
+              Matrix4.translationValues(0, _hovered && !reduced ? -2 : 0, 0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            border:
+                Border.all(color: _hovered ? colors.primary : colors.outline),
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Category Icon Avatar
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: workshop.categoryColor.withValues(alpha: isDark ? 0.22 : 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                workshop.iconData,
-                color: workshop.categoryColor,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-
-            // Information Column
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          child: Material(
+            color: colors.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => WorkshopDetailSheet.show(context, workshop),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 6, 14),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          workshop.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
+                      Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: colors.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(workshop.iconData,
+                                  color: colors.primary, size: 21),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                  Text(workshop.name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 15,
+                                          height: 1.3,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.3)),
+                                  const SizedBox(height: 4),
+                                  Text(workshop.category,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: colors.onSurfaceVariant)),
+                                ])),
+                            IconButton(
+                              tooltip: isFavorite
+                                  ? 'Remover dos favoritos'
+                                  : 'Salvar nos favoritos',
+                              isSelected: isFavorite,
+                              selectedIcon: const Icon(Icons.favorite_rounded,
+                                  color: AppColors.crimsonSos),
+                              icon: const Icon(Icons.favorite_border_rounded),
+                              iconSize: 21,
+                              constraints: const BoxConstraints(
+                                  minWidth: 48, minHeight: 48),
+                              onPressed: () => provider.toggleFavorite(
+                                  workshop.id, workshop),
+                            ),
+                          ]),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Row(children: [
+                          Icon(Icons.location_on_outlined,
+                              size: 15, color: colors.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Expanded(
+                              child: Text(workshop.address,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: colors.onSurfaceVariant))),
+                        ]),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (workshop.distanceKm != null)
+                                Text(workshop.formattedDistance,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.primary)),
+                              if (workshop.rating != null)
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.star_rounded,
+                                      size: 15, color: AppColors.amberGold),
+                                  const SizedBox(width: 3),
+                                  Text(workshop.rating!.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700)),
+                                ]),
+                              if (workshop.isCustomRegistered)
+                                Text('OFICINA PARCEIRA',
+                                    style: TextStyle(
+                                        fontSize: 9,
+                                        letterSpacing: 0.7,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.primary)),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text('Ver oficina',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.onSurface)),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_forward_rounded,
+                                    size: 14),
+                              ]),
+                            ]),
                       ),
                       if (workshop.isCustomRegistered) ...[
-                        const SizedBox(width: 5),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (isDark
-                                    ? const Color(0xFF34D399)
-                                    : AppColors.emeraldDeep)
-                                .withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'PARCEIRA',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: isDark
-                                  ? const Color(0xFF34D399)
-                                  : AppColors.emeraldDeep,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () => WhatsAppQuoteModal.show(context,
+                              workshop: workshop),
+                          icon: const Icon(Icons.chat_outlined, size: 17),
+                          label: const Text('Cotar via WhatsApp'),
                         ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          workshop.category,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: isDark
-                                ? const Color(0xFF93C5FD)
-                                : Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      if (workshop.distanceKm != null) ...[
-                        const Text(' • ',
-                            style: TextStyle(
-                                fontSize: 12, color: AppColors.slateMuted)),
-                        Text(
-                          workshop.formattedDistance,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.slateMuted,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    workshop.address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.slateMuted,
-                    ),
-                  ),
-                ],
+                    ]),
               ),
             ),
-
-            // Actions: Quick Quote & Favorite
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (workshop.isCustomRegistered)
-                  IconButton(
-                    tooltip: 'Cotar via WhatsApp',
-                    icon: Icon(
-                      Icons.chat_outlined,
-                      color: isDark
-                          ? const Color(0xFF34D399)
-                          : AppColors.emeraldDeep,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      WhatsAppQuoteModal.show(context, workshop: workshop);
-                    },
-                  ),
-                IconButton(
-                  tooltip:
-                      isFavorite ? 'Remover dos favoritos' : 'Salvar nos favoritos',
-                  icon: Icon(
-                    isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isFavorite ? AppColors.crimsonSos : AppColors.slateMuted,
-                    size: 20,
-                  ),
-                  onPressed: () => provider.toggleFavorite(workshop.id, workshop),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

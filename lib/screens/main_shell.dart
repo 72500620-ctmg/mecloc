@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../widgets/mecloc_brand.dart';
 import 'explore_screen.dart';
 import 'favorites_screen.dart';
 import 'profile_screen.dart';
@@ -10,7 +10,7 @@ class MainShellNavigation {
   static final ValueNotifier<int> tabIndex = ValueNotifier<int>(0);
 
   static void switchToTab(int index) {
-    tabIndex.value = index;
+    if (index >= 0 && index < 4) tabIndex.value = index;
   }
 }
 
@@ -23,10 +23,25 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int index = 0;
+  static const _destinations = [
+    (icon: Icons.map_outlined, selected: Icons.map_rounded, label: 'Explorar'),
+    (icon: Icons.favorite_border, selected: Icons.favorite, label: 'Favoritos'),
+    (
+      icon: Icons.directions_car_outlined,
+      selected: Icons.directions_car,
+      label: 'Veículos'
+    ),
+    (
+      icon: Icons.person_outline_rounded,
+      selected: Icons.person_rounded,
+      label: 'Perfil'
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
+    MainShellNavigation.tabIndex.value = 0;
     MainShellNavigation.tabIndex.addListener(_onTabNavChange);
   }
 
@@ -38,82 +53,79 @@ class _MainShellState extends State<MainShell> {
 
   void _onTabNavChange() {
     if (mounted && index != MainShellNavigation.tabIndex.value) {
-      setState(() {
-        index = MainShellNavigation.tabIndex.value;
-      });
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() => index = MainShellNavigation.tabIndex.value);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 960;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
+    final content = IndexedStack(index: index, children: const [
+      ExploreScreen(),
+      FavoritesScreen(),
+      VehicleScreen(),
+      ProfileScreen(),
+    ]);
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: IndexedStack(index: index, children: const [
-              ExploreScreen(),
-              FavoritesScreen(),
-              VehicleScreen(),
-              ProfileScreen(),
-            ]),
+      extendBody: true,
+      body: Row(children: [
+        if (wide) ...[
+          NavigationRail(
+            backgroundColor: colors.surface,
+            selectedIndex: index,
+            onDestinationSelected: MainShellNavigation.switchToTab,
+            labelType: NavigationRailLabelType.all,
+            minWidth: 92,
+            groupAlignment: -0.6,
+            leading: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: MecLocBrand(compact: true),
+            ),
+            destinations: _destinations
+                .map((d) => NavigationRailDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selected),
+                      label: Text(d.label),
+                    ))
+                .toList(),
           ),
-          if (!keyboardOpen)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: bottomInset + 12,
-              child: Material(
-                elevation: 6,
-                shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-                color: Theme.of(context).colorScheme.surface,
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.floating),
-                  side: BorderSide(
-                    color: isDark ? AppColors.darkBorder : AppColors.slateBorder,
-                    width: 1.2,
+          VerticalDivider(width: 1, color: colors.outline),
+        ],
+        Expanded(child: content),
+      ]),
+      bottomNavigationBar: wide || keyboardOpen
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Material(
+                  elevation: 6,
+                  shadowColor: colors.shadow.withValues(alpha: 0.16),
+                  color: Theme.of(context).navigationBarTheme.backgroundColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                    side: BorderSide(color: colors.outlineVariant),
                   ),
-                ),
-                child: NavigationBar(
-                  height: 66,
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  elevation: 0,
-                  selectedIndex: index,
-                  onDestinationSelected: (value) {
-                    MainShellNavigation.switchToTab(value);
-                  },
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.map_outlined),
-                      selectedIcon: Icon(Icons.map),
-                      label: 'Explorar',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.favorite_border),
-                      selectedIcon: Icon(Icons.favorite),
-                      label: 'Favoritos',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.directions_car_outlined),
-                      selectedIcon: Icon(Icons.directions_car),
-                      label: 'Veículos',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.person_outline_rounded),
-                      selectedIcon: Icon(Icons.person_rounded),
-                      label: 'Perfil',
-                    ),
-                  ],
+                  clipBehavior: Clip.antiAlias,
+                  child: NavigationBar(
+                    selectedIndex: index,
+                    onDestinationSelected: MainShellNavigation.switchToTab,
+                    destinations: _destinations
+                        .map((d) => NavigationDestination(
+                              icon: Icon(d.icon),
+                              selectedIcon: Icon(d.selected),
+                              label: d.label,
+                            ))
+                        .toList(),
+                  ),
                 ),
               ),
             ),
-        ],
-      ),
     );
   }
 }

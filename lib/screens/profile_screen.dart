@@ -7,6 +7,7 @@ import '../providers/theme_provider.dart';
 import '../providers/vehicle_provider.dart';
 import '../providers/workshop_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_page_body.dart';
 import 'auth/login_screen.dart';
 import 'auth/register_screen.dart';
 import 'main_shell.dart';
@@ -51,7 +52,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
     final themeProvider = context.watch<ThemeProvider>();
     final vehicleProvider = context.watch<VehicleProvider>();
     final workshopProvider = context.watch<WorkshopProvider>();
@@ -76,17 +77,19 @@ class ProfileScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+      body: AppPageBody(
+          child: ListView(
+        padding: EdgeInsets.fromLTRB(
+            24, 8, 24, 32 + MediaQuery.paddingOf(context).bottom),
         children: [
           // Card de Usuário
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
+              color: colors.surfaceContainer,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
                 width: 1.2,
               ),
             ),
@@ -94,15 +97,16 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 32,
-                  backgroundColor: AppColors.forest.withValues(alpha: 0.15),
-                  backgroundImage: photoUrl != null
-                      ? NetworkImage(photoUrl)
-                      : null,
+                  backgroundColor: colors.primary.withValues(alpha: 0.15),
+                  backgroundImage:
+                      photoUrl != null ? NetworkImage(photoUrl) : null,
                   child: photoUrl == null
                       ? Icon(
-                          isAuthenticated ? Icons.person_rounded : Icons.person_outline_rounded,
+                          isAuthenticated
+                              ? Icons.person_rounded
+                              : Icons.person_outline_rounded,
                           size: 36,
-                          color: AppColors.forest,
+                          color: colors.primary,
                         )
                       : null,
                 ),
@@ -122,9 +126,12 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         isAuthenticated
-                            ? (email.isNotEmpty ? email : 'Autenticado via Google')
+                            ? (email.isNotEmpty
+                                ? email
+                                : 'Autenticado via Google')
                             : 'Nenhuma conta conectada',
-                        style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.muted),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -133,33 +140,37 @@ class ProfileScreen extends StatelessWidget {
                         children: [
                           if (isAuthenticated)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppColors.forest.withValues(alpha: 0.15),
+                                color: colors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                isWorkshopOwner ? 'Oficina Parceira' : 'Motorista',
-                                style: const TextStyle(
+                                isWorkshopOwner
+                                    ? 'Oficina Parceira'
+                                    : 'Motorista',
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.forest,
+                                  color: colors.primary,
                                 ),
                               ),
                             ),
                           if (isAuthenticated && activeVehicle != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: AppColors.leaf.withValues(alpha: 0.25),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 activeVehicle.shortName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.forest,
+                                  color: colors.primary,
                                 ),
                               ),
                             ),
@@ -185,62 +196,76 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
             child: Column(
               children: [
                 if (!isAuthenticated) ...[
                   ListTile(
-                    leading: const Icon(Icons.login_rounded, color: AppColors.forest),
+                    leading: Icon(Icons.login_rounded, color: colors.primary),
                     title: const Text('Entrar com sua conta'),
-                    subtitle: const Text('Acesse seus orçamentos e garagens salvas'),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    subtitle:
+                        const Text('Acesse seus orçamentos e garagens salvas'),
+                    trailing:
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                        MaterialPageRoute<void>(
+                            builder: (_) => const LoginScreen()),
                       );
                     },
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.forest),
+                    leading: Icon(Icons.person_add_alt_1_rounded,
+                        color: colors.primary),
                     title: const Text('Criar novo cadastro'),
-                    subtitle: const Text('Cadastre-se como motorista ou oficina'),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    subtitle:
+                        const Text('Cadastre-se como motorista ou oficina'),
+                    trailing:
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute<void>(builder: (_) => const RegisterScreen()),
+                        MaterialPageRoute<void>(
+                            builder: (_) => const RegisterScreen()),
                       );
                     },
                   ),
                 ] else ...[
                   ListTile(
-                    leading: const Icon(Icons.switch_account_outlined, color: AppColors.forest),
+                    leading: Icon(Icons.switch_account_outlined,
+                        color: colors.primary),
                     title: const Text('Trocar de conta'),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    trailing:
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                        MaterialPageRoute<void>(
+                            builder: (_) => const LoginScreen()),
                       );
                     },
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.logout_rounded, color: AppColors.coralRed),
+                    leading: const Icon(Icons.logout_rounded,
+                        color: AppColors.coralRed),
                     title: const Text(
                       'Sair da conta',
-                      style: TextStyle(color: AppColors.coralRed, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: AppColors.coralRed,
+                          fontWeight: FontWeight.w600),
                     ),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                    trailing:
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                     onTap: () => _showSignOutDialog(context),
                   ),
                 ],
@@ -261,18 +286,19 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.storefront_rounded, color: AppColors.forest),
+                  leading:
+                      Icon(Icons.storefront_rounded, color: colors.primary),
                   title: const Text('Minhas Oficinas'),
                   subtitle: Text(
                     !isAuthenticated
@@ -281,7 +307,8 @@ class ProfileScreen extends StatelessWidget {
                             ? 'Nenhuma oficina cadastrada'
                             : '${myWorkshops.length} oficina(s) cadastrada(s)',
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -293,10 +320,13 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.add_business_rounded, color: AppColors.forest),
+                  leading:
+                      Icon(Icons.add_business_rounded, color: colors.primary),
                   title: const Text('Cadastrar Nova Oficina'),
-                  subtitle: const Text('Ative atendimento via WhatsApp no MecLoc'),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  subtitle:
+                      const Text('Ative atendimento via WhatsApp no MecLoc'),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     if (!isAuthenticated) {
                       Navigator.push(
@@ -332,33 +362,36 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.palette_outlined, color: AppColors.forest),
+                  leading: Icon(Icons.palette_outlined, color: colors.primary),
                   title: const Text('Tema do aplicativo'),
                   subtitle: Text(switch (themeProvider.themeMode) {
                     ThemeMode.system => 'Automático (sistema)',
                     ThemeMode.light => 'Claro',
                     ThemeMode.dark => 'Escuro',
                   }),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+                    MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen()),
                   ),
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.directions_car_filled_rounded, color: AppColors.forest),
+                  leading: Icon(Icons.directions_car_filled_rounded,
+                      color: colors.primary),
                   title: const Text('Gerenciar Veículos'),
                   subtitle: Text(
                     !isAuthenticated
@@ -367,18 +400,21 @@ class ProfileScreen extends StatelessWidget {
                             ? 'Nenhum veículo cadastrado'
                             : '${vehicleProvider.vehicles.length} veículo(s) cadastrado(s)',
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                   onTap: () {
                     if (!isAuthenticated) {
                       Navigator.push(
                         context,
-                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                        MaterialPageRoute<void>(
+                            builder: (_) => const LoginScreen()),
                       );
                       return;
                     }
                     Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => const VehicleScreen()),
+                      MaterialPageRoute<void>(
+                          builder: (_) => const VehicleScreen()),
                     );
                   },
                 ),
@@ -399,32 +435,36 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Material(
-            color: isDark ? AppColors.darkSurface : Colors.white,
+            color: colors.surfaceContainer,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isDark ? AppColors.darkLine : AppColors.line,
+                color: colors.outline,
               ),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 ListTile(
-                  leading: Icon(Icons.info_outline_rounded, color: AppColors.forest),
-                  title: Text('Sobre a Plataforma MecLoc'),
-                  subtitle: Text('Versão 2.1 • Firebase Auth, Firestore & OpenStreetMap'),
+                  leading:
+                      Icon(Icons.info_outline_rounded, color: colors.primary),
+                  title: const Text('Sobre a Plataforma MecLoc'),
+                  subtitle: const Text(
+                      'Versão 2.1 • Firebase Auth, Firestore & OpenStreetMap'),
                 ),
-                Divider(height: 1),
+                const Divider(height: 1),
                 ListTile(
-                  leading: Icon(Icons.verified_user_outlined, color: AppColors.forest),
-                  title: Text('Privacidade e Termos de Uso'),
-                  subtitle: Text('Dados abertos do OpenStreetMap e dados locais protegidos'),
+                  leading:
+                      Icon(Icons.verified_user_outlined, color: colors.primary),
+                  title: const Text('Privacidade e Termos de Uso'),
+                  subtitle: const Text(
+                      'Dados abertos do OpenStreetMap e dados locais protegidos'),
                 ),
               ],
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 }
